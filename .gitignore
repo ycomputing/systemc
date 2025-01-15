@@ -1,3 +1,5 @@
+.vscode/*
+
 # Prerequisites
 *.d
 
@@ -16,10 +18,6 @@
 *.dylib
 *.dll
 
-# Fortran module files
-*.mod
-*.smod
-
 # Compiled Static libraries
 *.lai
 *.la
@@ -30,3 +28,9 @@
 *.exe
 *.out
 *.app
+
+# Trace files
+trace.vcd
+
+# Temporary VI files
+*.swp
