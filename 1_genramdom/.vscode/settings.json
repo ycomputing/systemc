@@ -1,9 +1,0 @@
-{
-    "makefile.launchConfigurations": [
-        {
-            "cwd": "/home/changp/joy/systemc/1_genramdom",
-            "binaryPath": "/home/changp/joy/systemc/1_genramdom/project.exe",
-            "binaryArgs": []
-        }
-    ]
-}
