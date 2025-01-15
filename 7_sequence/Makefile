@@ -24,4 +24,4 @@ view:	$(EXE)
 	gtkwave trace.vcd
 
 clean:
-	rm $(OBJS) $(EXE)
+	rm -f $(OBJS) $(EXE) $(DEPEND)

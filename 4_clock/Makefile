@@ -8,13 +8,16 @@ EXE			:= project.exe
 
 SRCS	= $(wildcard *.cpp)
 OBJS	= $(SRCS:.cpp=.o)
+DEPEND	= $(OBJS:%.o=%.d)
 
 $(EXE): $(OBJS)
 	$(CXX) $(LDFLAGS) -o $@ $(OBJS) $(LIBS) 2>&1 | c++filt
 	@test -x $@
 
+-include $(DEPEND)
+
 .cpp.o:
-	$(CXX) $(CFLAGS) $(CXXFLAGS) -c $< -o $@
+	$(CXX) $(CFLAGS) $(CXXFLAGS) -MMD -c $< -o $@
 
 view:	$(EXE)
 	./$(EXE)
