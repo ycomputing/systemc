@@ -1,9 +1,0 @@
-{
-    "makefile.launchConfigurations": [
-        {
-            "cwd": "/home/changp/joy/systemc/2_adder",
-            "binaryPath": "/home/changp/joy/systemc/2_adder/project.exe",
-            "binaryArgs": []
-        }
-    ]
-}
