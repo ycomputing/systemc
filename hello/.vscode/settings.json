@@ -1,0 +1,9 @@
+{
+    "makefile.launchConfigurations": [
+        {
+            "cwd": "/home/changp/joy/systemc/hello",
+            "binaryPath": "/home/changp/joy/systemc/hello/project.exe",
+            "binaryArgs": []
+        }
+    ]
+}

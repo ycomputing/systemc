@@ -1,0 +1,320 @@
+$date
+     Jan 12, 2025       23:23:40
+$end
+
+$version
+ SystemC 2.3.4-Accellera --- Apr 22 2024 14:54:19
+$end
+
+$timescale
+     1 ns
+$end
+
+$scope module SystemC $end
+$var wire   32  aaaaa  x [31:0]  $end
+$var wire   32  aaaab  y [31:0]  $end
+$var wire   32  aaaac  z [31:0]  $end
+$upscope $end
+$enddefinitions  $end
+
+$comment
+All initial values are dumped below at time 0 sec = 0 timescale units.
+$end
+
+$dumpvars
+b111010 aaaaa
+b1010011 aaaab
+b10001101 aaaac
+$end
+
+#1
+b110110 aaaaa
+b10001001 aaaac
+
+#2
+b111111 aaaaa
+b1010000 aaaab
+b10001111 aaaac
+
+#4
+b11 aaaab
+b1000010 aaaac
+
+#5
+b1000111 aaaaa
+b1001010 aaaac
+
+#7
+b11111 aaaaa
+b100010 aaaac
+
+#8
+b1011 aaaab
+b101010 aaaac
+
+#11
+b10110 aaaaa
+b1100 aaaab
+b100010 aaaac
+
+#14
+b100100 aaaaa
+b11001 aaaab
+b111101 aaaac
+
+#15
+b1000011 aaaab
+b1100111 aaaac
+
+#16
+b11101 aaaaa
+b1011100 aaaab
+b1111001 aaaac
+
+#17
+b1010 aaaab
+b100111 aaaac
+
+#19
+b1101 aaaaa
+b10111 aaaac
+
+#20
+b110000 aaaaa
+b111010 aaaac
+
+#21
+b1011011 aaaab
+b10001011 aaaac
+
+#23
+b10100 aaaab
+b1000100 aaaac
+
+#24
+b10 aaaaa
+b1011101 aaaab
+b1011111 aaaac
+
+#25
+b100101 aaaaa
+b10000010 aaaac
+
+#26
+b111110 aaaab
+b1100011 aaaac
+
+#28
+b100000 aaaaa
+b1011110 aaaac
+
+#30
+b1011111 aaaab
+b1111111 aaaac
+
+#31
+b10100 aaaaa
+b1110011 aaaac
+
+#32
+b1111 aaaaa
+b1101110 aaaac
+
+#33
+b11001 aaaaa
+b1011101 aaaab
+b1110110 aaaac
+
+#34
+b101111 aaaaa
+b1001000 aaaab
+b1110111 aaaac
+
+#35
+b1010110 aaaab
+b10000101 aaaac
+
+#37
+b1000100 aaaaa
+b110100 aaaab
+b1111000 aaaac
+
+#40
+b100110 aaaaa
+b1010110 aaaab
+b1111100 aaaac
+
+#43
+b110101 aaaab
+b1011011 aaaac
+
+#44
+b10000 aaaaa
+b1000101 aaaac
+
+#47
+b10111 aaaaa
+b111010 aaaab
+b1010001 aaaac
+
+#48
+b1100 aaaaa
+b1011111 aaaab
+b1101011 aaaac
+
+#49
+b10110 aaaab
+b100010 aaaac
+
+#51
+b1 aaaaa
+b10111 aaaac
+
+#52
+b1100 aaaaa
+b100010 aaaac
+
+#53
+b111111 aaaab
+b1001011 aaaac
+
+#54
+b10000 aaaaa
+b1001111 aaaac
+
+#55
+b110100 aaaaa
+b1110011 aaaac
+
+#56
+b111101 aaaab
+b1110001 aaaac
+
+#57
+b11110 aaaaa
+b1011011 aaaac
+
+#58
+b1000101 aaaab
+b1100011 aaaac
+
+#59
+b1001110 aaaaa
+b1010100 aaaab
+b10100010 aaaac
+
+#60
+b1110 aaaab
+b1011100 aaaac
+
+#61
+b100010 aaaaa
+b110000 aaaac
+
+#62
+b1000011 aaaaa
+b1010001 aaaac
+
+#64
+b110 aaaab
+b1001001 aaaac
+
+#65
+b1000 aaaaa
+b100010 aaaab
+b101010 aaaac
+
+#66
+b101 aaaaa
+b1001000 aaaab
+b1001101 aaaac
+
+#67
+b101110 aaaab
+b110011 aaaac
+
+#69
+b111100 aaaaa
+b1101010 aaaac
+
+#70
+b1010011 aaaab
+b10001111 aaaac
+
+#72
+b100010 aaaaa
+b1110101 aaaac
+
+#73
+b1000 aaaaa
+b1011011 aaaac
+
+#74
+b100011 aaaab
+b101011 aaaac
+
+#77
+b110010 aaaaa
+b1010101 aaaac
+
+#78
+b11110 aaaab
+b1010000 aaaac
+
+#81
+b1011010 aaaaa
+b1111000 aaaac
+
+#82
+b1001001 aaaaa
+b11011 aaaab
+b1100100 aaaac
+
+#84
+b1011000 aaaaa
+b110111 aaaab
+b10001111 aaaac
+
+#85
+b11 aaaab
+b1011011 aaaac
+
+#86
+b1110 aaaaa
+b10001 aaaac
+
+#87
+b1100011 aaaaa
+b110000 aaaab
+b10010011 aaaac
+
+#90
+b10100 aaaaa
+b1000100 aaaac
+
+#91
+b111000 aaaab
+b1001100 aaaac
+
+#94
+b101000 aaaaa
+b1100000 aaaac
+
+#95
+b1001010 aaaaa
+b10111 aaaab
+b1100001 aaaac
+
+#96
+b100001 aaaab
+b1101011 aaaac
+
+#98
+b1011011 aaaab
+b10100101 aaaac
+
+#99
+b1001111 aaaaa
+b10101010 aaaac
+
+#100
