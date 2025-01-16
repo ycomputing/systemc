@@ -31,5 +31,15 @@ int sc_main(int, char*[])
 	std::cout << "X and Z = " << (SC_LOGIC_X & SC_LOGIC_Z) << std::endl;
 	std::cout << "X or  Z = " << (SC_LOGIC_X | SC_LOGIC_Z) << std::endl;
 
+	sc_lv<8> a, b, c;
+	a = "0b01010X0Z";
+	b = "0b11X0Z1ZX";
+
+	c = a & b;
+	std::cout << a << " and " << b << " = " << c << std::endl;
+
+	c = a | b;
+	std::cout << a << " or  " << b << " = " << c << std::endl;
+
 	return (0);
 }
