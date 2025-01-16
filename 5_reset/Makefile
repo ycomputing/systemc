@@ -1,6 +1,6 @@
 SYSTEMC		:= /opt/systemc
 CXX			:= g++
-CFLAGS		:= -c -Wall -I/opt/systemc/include
+CFLAGS		:= -c -g -Wall -I/opt/systemc/include
 CXXFLAGS	:= -std=c++17
 LDFLAGS		:= -L/opt/systemc/lib-linux64
 LIBS		:= -lsystemc -lm
@@ -24,4 +24,4 @@ view:	$(EXE)
 	gtkwave trace.vcd
 
 clean:
-	rm $(OBJS) $(EXE)
+	rm -f $(OBJS) $(EXE) $(DEPEND)

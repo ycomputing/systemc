@@ -43,5 +43,3 @@ int sc_main(int, char*[])
 	sc_close_vcd_trace_file(f);
 	return (0);
 }
-
-

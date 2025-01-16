@@ -6,7 +6,7 @@ using namespace sc_core;
 #define SIMULATION_TIME	100000
 
 #include "resetter.h"
-#include "genrandom.h"
+#include "gensignal.h"
 #include "sequence_detector.h"
 
 int sc_main(int, char*[])
@@ -15,17 +15,17 @@ int sc_main(int, char*[])
 	sc_signal<uint8_t> random_digit;
 	sc_signal<bool> match;
 
-	sc_clock clock ("clock", 2, SC_NS);
+	sc_clock clock ("clock", 4, SC_NS);
 	RESETTER r1("resetter");
 	SEQUENCE_DETECTOR sd1("detector");
-	GENRANDOM gen1("gen");
+	GENSIGNAL gen1("gen");
 
 	sd1.clock(clock);
 	sd1.reset(reset);
 	sd1.in(random_digit);
 	sd1.out(match);
-	gen1.clock(clock);
-	gen1.ooo(random_digit);
+
+	gen1.digit(random_digit);
 
 	r1.reset(reset);
 
