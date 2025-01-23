@@ -87,9 +87,11 @@ SC_MODULE(ROM)
 				last_ce_negedge = sc_time_stamp();
 				e_out.notify(T_CE);
 			}
-			else if (address.event())
+
+			if (address.value_changed_event().triggered())
 			{
 				last_address_change = sc_time_stamp();
+				std::cout << "address=" << address.read() << " at " << sc_time_stamp() << std::endl;
 				e_out.notify(T_ACC);
 			}
 
@@ -100,18 +102,19 @@ SC_MODULE(ROM)
 			}
 			else
 			{
-				data_internal = "XXXXXXXX";
+				data_internal = "XXXXXXX1";
 			}
 
 			if (ce_bar == SC_LOGIC_0)
 			{
-				if (sc_time_stamp() > last_ce_negedge + T_CE)
+				if (sc_time_stamp() < last_ce_negedge + T_CE)
 				{
 					data = data_internal;
+					//data = "ZZZZZZZ1";
 				}
 				else
 				{
-					data = "ZZZZZZZZ";
+					data = data_internal;
 				}
 			}
 			else	// ce_bar == 1
@@ -122,11 +125,11 @@ SC_MODULE(ROM)
 				}
 				else if (sc_time_stamp() < last_ce_posedge + T_DF)
 				{
-					data = "XXXXXXXX";
+					data = "XXXXXX11";
 				}
 				else
 				{
-					data = "ZZZZZZZZ";
+					data = "ZZZZZZ11";
 				}
 			}
 			

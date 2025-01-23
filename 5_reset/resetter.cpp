@@ -20,10 +20,15 @@ SC_MODULE(RESETTER)
 		reset = false;
 		wait(13, SC_NS);
 		reset = true;
+		SC_REPORT_INFO ("reset", "example info message, can continue");
+		SC_REPORT_WARNING ("reset", "example warning message, can continue");
+		//SC_REPORT_ERROR ("reset", "example error message, throws an exception");
+		//SC_REPORT_FATAL ("reset", "example fatal message, aborts and may dump core");
 		wait(20, SC_NS);
 		reset = false;
 		wait(40, SC_NS);
 		reset = true;
+		SC_REPORT_INFO ("reset", "Can this reach here?");
 		wait(10, SC_NS);
 		reset = false;
 	}

@@ -4,7 +4,7 @@
 using namespace sc_core;
 using namespace sc_dt;
 
-#define SIMULATION_TIME	10000
+#define SIMULATION_TIME	100000
 
 #include "rom.h"
 #include "gensignal.h"

@@ -14,15 +14,14 @@ SC_MODULE(GENRANDOM)
 		{
 			int32_t	value;
 			int32_t	period;
-			int32_t x;
 			value = rand() % 100;
 			period = rand() % 10;
-			std::cout << sc_time_stamp() << ", value=" << value << ", period=" << period << "  " << x << std::endl;
-
 			ooo = value;
-			x = ooo;
+
+			std::cout << sc_time_stamp() << ", value=" << value << ", period=" << period << ", output=" << ooo << std::endl;
 			wait(SC_ZERO_TIME);
-			x = ooo;
+
+			std::cout << sc_time_stamp() << ", value=" << value << ", period=" << period << ", output=" << ooo << std::endl;
 			wait(period, SC_NS);
 		}
 		std::cout << sc_time_stamp() << ": execute end" << std::endl;

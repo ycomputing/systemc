@@ -12,7 +12,8 @@ using namespace sc_core;
 
 int sc_main(int, char*[])
 {
-	srand(time(NULL));
+	srand(0);
+	//srand(time(NULL));
 
 	sc_signal <int32_t> x;
 
