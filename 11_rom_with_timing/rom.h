@@ -23,19 +23,19 @@ SC_MODULE(ROM)
 
 	uint8_t* array;
 	const char *filename = "memory.csv";
-	sc_event e_out;
+	sc_event_queue event_queue;
 
 	// based on the timing diagram of Intel 2716 EPROM
 
 	const sc_time T_ACC = sc_time(450, SC_NS);		// from address to output
 	const sc_time T_CE = sc_time(450, SC_NS);	// from ce_bar to output
 	const sc_time T_DF = sc_time(100, SC_NS);	// from ce_bar to output float
-	const sc_time T_OH = sc_time(1, SC_NS);	// output hold
+	const sc_time T_OH = sc_time(10, SC_NS);	// output hold ( 1 ns)
 
 	SC_CTOR(ROM)
 	{
 		SC_THREAD(thread_execute);
-		sensitive << ce_bar << address << e_out;
+		sensitive << ce_bar << address << event_queue;
 	}
 
 	void read_csv()
@@ -79,58 +79,68 @@ SC_MODULE(ROM)
 			if (ce_bar.posedge())
 			{
 				last_ce_posedge = sc_time_stamp();
-				e_out.notify(T_OH);
-				e_out.notify(T_DF);
+				event_queue.notify(T_OH);
+				event_queue.notify(T_DF);
 			}
 			else if (ce_bar.negedge())
 			{
 				last_ce_negedge = sc_time_stamp();
-				e_out.notify(T_CE);
+				event_queue.notify(T_CE);
 			}
 
 			if (address.value_changed_event().triggered())
 			{
 				last_address_change = sc_time_stamp();
-				std::cout << "address=" << address.read() << " at " << sc_time_stamp() << std::endl;
-				e_out.notify(T_ACC);
+				event_queue.notify(T_ACC);
 			}
 
-			if (sc_time_stamp() > last_address_change + T_ACC)
+			if (sc_time_stamp() < last_address_change + T_ACC)
 			{
-				uint16_t addr = address.read().to_uint();
-				data_internal = array[addr];
+				// address is not stable yet.
+				data_internal = "XXXXXXXX";
 			}
 			else
 			{
-				data_internal = "XXXXXXX1";
+				// address is stable now.
+				uint16_t addr = address.read().to_uint();
+				data_internal = array[addr];
 			}
 
 			if (ce_bar == SC_LOGIC_0)
 			{
 				if (sc_time_stamp() < last_ce_negedge + T_CE)
 				{
-					data = data_internal;
-					//data = "ZZZZZZZ1";
+					// output is not stable yet.
+					data = "XXXXXXXX";
 				}
 				else
 				{
+					// output is stable now.
 					data = data_internal;
 				}
 			}
-			else	// ce_bar == 1
+			else if (ce_bar == SC_LOGIC_1)
 			{
 				if (sc_time_stamp() < last_ce_posedge + T_OH)
 				{
-					data = data_internal;
+					// still hold data. No need to change data.
+					//data = data_internal;
 				}
 				else if (sc_time_stamp() < last_ce_posedge + T_DF)
 				{
-					data = "XXXXXX11";
+					// holding time is over, but before float time.
+					data = "XXXXXXXX";
 				}
 				else
 				{
-					data = "ZZZZZZ11";
+					// holding and float time is over.
+					data = "ZZZZZZZZ";
 				}
+			}
+			else
+			{
+				// ce_bar is in unknown state.
+				data = "XXXXXXXX";
 			}
 			
 			wait();
