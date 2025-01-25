@@ -30,7 +30,7 @@ SC_MODULE(ROM)
 	const sc_time T_ACC = sc_time(450, SC_NS);	// from address to output
 	const sc_time T_CE = sc_time(450, SC_NS);	// from ce_bar to output
 	const sc_time T_DF = sc_time(100, SC_NS);	// from ce_bar to output float
-	const sc_time T_OH = sc_time(10, SC_NS);	// output hold ( 1 ns)
+	const sc_time T_OH = sc_time(10, SC_NS);	// output hold (original 0 ns)
 
 	SC_CTOR(ROM)
 	{
