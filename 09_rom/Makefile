@@ -1,8 +1,10 @@
 SYSTEMC		:= /opt/systemc
+INCLUDE_DIR	:= $(SYSTEMC)/include
+LIB_DIR		:= $(SYSTEMC)/lib-linux64
 CXX		:= g++
-CFLAGS		:= -c -g -Wall -I/opt/systemc/include
+CFLAGS		:= -c -g -Wall -I$(INCLUDE_DIR)
 CXXFLAGS	:= -std=c++17
-LDFLAGS		:= -L/opt/systemc/lib-linux64
+LDFLAGS		:= -L$(LIB_DIR) -Wl,-rpath=$(LIB_DIR)
 LIBS		:= -lsystemc -lm
 EXE		:= project.exe
 
