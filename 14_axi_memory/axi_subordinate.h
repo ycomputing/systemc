@@ -7,9 +7,6 @@
 
 #include "axi_param.h"
 
-#define LATENCY_READY_AW	10
-#define LATENCY_READY_W		10
-
 SC_MODULE(AXI_SUBORDINATE)
 {
 	sc_in<bool>	ACLK;
@@ -33,7 +30,6 @@ SC_MODULE(AXI_SUBORDINATE)
 	sc_out<bool>		BVALID;
 	sc_in<bool>			BREADY;
 	sc_out<uint32_t>	BID;
-	sc_out<bool>		BRESP;
 
 	// Chapter A2.2.1 read request channel
 	sc_in<bool>			ARVALID;
@@ -49,7 +45,8 @@ SC_MODULE(AXI_SUBORDINATE)
 	sc_out<bus_data_t>	RDATA;
 	sc_out<bool>		RLAST;
 
-	std::vector<std::tuple<uint64_t, bus_data_t>> memory;
+	// pair<address, data>
+	std::unordered_map<uint64_t, bus_data_t> map_memory;
 
 	// tuple<AWID, AWADDR, AWLEN>
 	std::vector<std::tuple<uint32_t, uint64_t, uint8_t>> requests_AW;
@@ -57,18 +54,20 @@ SC_MODULE(AXI_SUBORDINATE)
 	// tuple<WID, WDATA, WLAST>
 	std::vector<std::tuple<uint32_t, bus_data_t, bool>> requests_W;
 
-	// tuple<ARID, ARADDR, ARLEN>
-	std::queue<std::tuple<uint32_t, uint32_t, bool>> queue_B;
+	// tuple<BID, BRESP>
+	std::queue<uint32_t> queue_B;
 
 	// tuple<ARID, ARADDR, ARLEN>
-	std::vector<std::tuple<uint32_t, uint32_t, bool>> requests_AR;
+	std::vector<std::tuple<uint32_t, uint64_t, bool>> requests_AR;
 
 	// tuple<RID, RDATA, RLAST>
 	std::queue<std::tuple<uint32_t, bus_data_t, bool>> queue_R;
 
+	// for latency cowntdown
 	int latency_AW;
 	int latency_W;
-
+	int latency_AR;
+	int latency_R;
 
 	const char *filename_memory = "s_memory.csv";
 
@@ -80,7 +79,8 @@ SC_MODULE(AXI_SUBORDINATE)
 		sensitive << ACLK << ARESETn << event_queue;
 	}
 
-	void channel_manager();
+	void channel_writer();
+	void channel_reader();
 	void channel_AW();
 	void channel_W();
 	void channel_B();

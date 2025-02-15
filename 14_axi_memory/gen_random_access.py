@@ -3,7 +3,7 @@ import random
 
 def gen_random_access(filename_access="m_access.csv", filename_memory="s_memory.csv",
 					  address_width=64, data_width=8*64, mode="R",
-					  stamp_start=100, stamp_step_min = 10, stamp_step_max = 100,
+					  stamp_start=100, stamp_step_min = 2, stamp_step_max = 200,
 					  n=100):
 	address_mask = (2**(address_width) - 1) ^ ((data_width//8)-1)
 	random.seed(0)  # for reproducibility
@@ -28,4 +28,4 @@ def gen_random_access(filename_access="m_access.csv", filename_memory="s_memory.
 	f_memory.close()
 
 if __name__ == '__main__':
-	gen_random_access(mode="any", data_width=128)
+	gen_random_access(mode="any", data_width=128, n=1000)

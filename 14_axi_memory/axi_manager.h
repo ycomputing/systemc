@@ -29,7 +29,6 @@ SC_MODULE(AXI_MANAGER)
 	sc_in<bool>			BVALID;
 	sc_out<bool>		BREADY;
 	sc_in<uint32_t>		BID;
-	sc_in<bool>			BRESP;
 
 	// Chapter A2.2.1 read request channel
 	sc_out<bool>		ARVALID;
@@ -47,10 +46,11 @@ SC_MODULE(AXI_MANAGER)
 
 	const char *filename_access = "m_access.csv";
 
-	std::vector<std::tuple<uint64_t, bus_data_t>> memory;
+	// pair<address, data>
+	std::unordered_map<uint64_t, bus_data_t> map_memory;
 
-	// queue access tuple: (timestamp, access_type, address, data)
-	std::queue<std::tuple<uint64_t, bus_access_t, uint64_t, bus_data_t>> queue_access;
+	// queue access tuple: (timestamp, access_type(r/w), address, data)
+	std::queue<std::tuple<uint64_t, char, uint64_t, bus_data_t>> queue_access;
 
 	// queue AW tuple: (AWID, AWADDR, AWLEN)
 	std::queue<std::tuple<uint32_t, uint64_t, uint8_t>> queue_AW;
@@ -61,13 +61,14 @@ SC_MODULE(AXI_MANAGER)
 	// queue AR tuple: (ARID, ARADDR, ARLEN)
 	std::queue<std::tuple<uint32_t, uint64_t, uint8_t>> queue_AR;
 
-	// queue R tuple: (RID, RDATA, RLAST)
-	std::queue<std::tuple<uint32_t, bus_data_t, bool>> queue_R;
-
-	// queue B tuple: (BID, BRESP)
-	std::queue<std::tuple<uint32_t, bus_access_t>> queue_B;
+	// pair<ARID, ARADDR>
+	std::unordered_map<uint32_t, uint64_t> map_requests_AR;
 
 
+	// for latency countdown
+	int latency_B;
+	int latency_R;
+	
 	sc_event_queue event_queue;
 
 	SC_CTOR(AXI_MANAGER)
@@ -84,6 +85,8 @@ SC_MODULE(AXI_MANAGER)
 	void channel_R();
 
 	void channel_log(std::string channel, std::string action, std::string detail);
+
+	uint32_t generate_transaction_id();
 
 	void on_reset();
 	void on_clock();

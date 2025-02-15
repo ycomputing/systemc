@@ -33,7 +33,6 @@ int sc_main(int, char*[])
 	sc_signal<bool>			BVALID;
 	sc_signal<bool>			BREADY;
 	sc_signal<uint32_t>		BID;
-	sc_signal<bool>			BRESP;
 
 	// Chapter A2.2.1 read request channel
 	sc_signal<bool>			ARVALID;
@@ -70,7 +69,6 @@ int sc_main(int, char*[])
 	m.BVALID(BVALID);
 	m.BREADY(BREADY);
 	m.BID(BID);
-	m.BRESP(BRESP);
 	m.ARVALID(ARVALID);
 	m.ARREADY(ARREADY);
 	m.ARID(ARID);
@@ -97,7 +95,6 @@ int sc_main(int, char*[])
 	s.BVALID(BVALID);
 	s.BREADY(BREADY);
 	s.BID(BID);
-	s.BRESP(BRESP);
 	s.ARVALID(ARVALID);
 	s.ARREADY(ARREADY);
 	s.ARID(ARID);
@@ -126,7 +123,6 @@ int sc_main(int, char*[])
 	sc_trace(f, BVALID, "BVALID");
 	sc_trace(f, BREADY, "BREADY");
 	sc_trace(f, BID, "BID");
-	sc_trace(f, BRESP, "BRESP");
 	sc_trace(f, ARVALID, "ARVALID");
 	sc_trace(f, ARREADY, "ARREADY");
 	sc_trace(f, ARID, "ARID");
