@@ -27,6 +27,7 @@ int sc_main(int, char*[])
 	sc_signal<bool>			WREADY;
 	sc_signal<uint32_t>		WID;
 	sc_signal<bus_data_t>	WDATA;
+	sc_signal<bool>			WLAST;
 
 	// Chapter A2.1.3 write response channel
 	sc_signal<bool>			BVALID;
@@ -65,6 +66,7 @@ int sc_main(int, char*[])
 	m.WREADY(WREADY);
 	m.WID(WID);
 	m.WDATA(WDATA);
+	m.WLAST(WLAST);
 	m.BVALID(BVALID);
 	m.BREADY(BREADY);
 	m.BID(BID);
@@ -91,6 +93,7 @@ int sc_main(int, char*[])
 	s.WREADY(WREADY);
 	s.WID(WID);
 	s.WDATA(WDATA);
+	s.WLAST(WLAST);
 	s.BVALID(BVALID);
 	s.BREADY(BREADY);
 	s.BID(BID);
@@ -119,6 +122,7 @@ int sc_main(int, char*[])
 	sc_trace(f, WREADY, "WREADY");
 	sc_trace(f, WID, "WID");
 	sc_trace(f, WDATA, "WDATA");
+	sc_trace(f, WLAST, "WLAST");
 	sc_trace(f, BVALID, "BVALID");
 	sc_trace(f, BREADY, "BREADY");
 	sc_trace(f, BID, "BID");
@@ -134,7 +138,14 @@ int sc_main(int, char*[])
 	sc_trace(f, RDATA, "RDATA");
 	sc_trace(f, RLAST, "RLAST");
 
+	m.read_access_csv();
+	s.read_memory_csv();
+	
 	sc_start(SIMULATION_TIME, SC_NS);
 	sc_close_vcd_trace_file(f);
+
+	m.write_memory_csv("m_memory_after.csv");
+	s.write_memory_csv("s_memory_after.csv");
+
 	return (0);
 }

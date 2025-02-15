@@ -1,4 +1,5 @@
 #include <fstream>
+#include <queue>
 #include <sstream>
 #include <vector>
 #include <string>
@@ -6,8 +7,8 @@
 
 #include "axi_param.h"
 
-#define READ_LATENCY	10
-#define WRITE_LATENCY	10
+#define LATENCY_READY_AW	10
+#define LATENCY_READY_W		10
 
 SC_MODULE(AXI_SUBORDINATE)
 {
@@ -26,6 +27,7 @@ SC_MODULE(AXI_SUBORDINATE)
 	sc_out<bool>		WREADY;
 	sc_in<uint32_t>		WID;
 	sc_in<bus_data_t>	WDATA;
+	sc_in<bool>			WLAST;
 
 	// Chapter A2.1.3 write response channel
 	sc_out<bool>		BVALID;
@@ -49,7 +51,27 @@ SC_MODULE(AXI_SUBORDINATE)
 
 	std::vector<std::tuple<uint64_t, bus_data_t>> memory;
 
-	const char *filename = "s_memory.csv";
+	// tuple<AWID, AWADDR, AWLEN>
+	std::vector<std::tuple<uint32_t, uint64_t, uint8_t>> requests_AW;
+
+	// tuple<WID, WDATA, WLAST>
+	std::vector<std::tuple<uint32_t, bus_data_t, bool>> requests_W;
+
+	// tuple<ARID, ARADDR, ARLEN>
+	std::queue<std::tuple<uint32_t, uint32_t, bool>> queue_B;
+
+	// tuple<ARID, ARADDR, ARLEN>
+	std::vector<std::tuple<uint32_t, uint32_t, bool>> requests_AR;
+
+	// tuple<RID, RDATA, RLAST>
+	std::queue<std::tuple<uint32_t, bus_data_t, bool>> queue_R;
+
+	int latency_AW;
+	int latency_W;
+
+
+	const char *filename_memory = "s_memory.csv";
+
 	sc_event_queue event_queue;
 
 	SC_CTOR(AXI_SUBORDINATE)
@@ -58,8 +80,19 @@ SC_MODULE(AXI_SUBORDINATE)
 		sensitive << ACLK << ARESETn << event_queue;
 	}
 
+	void channel_manager();
+	void channel_AW();
+	void channel_W();
+	void channel_B();
+	void channel_AR();
+	void channel_R();
+
+	void channel_log(std::string channel, std::string action, std::string detail);
+
 	void on_reset();
 	void on_clock();
+	void read_memory_csv();
+	void write_memory_csv(const char* filename);
 
 	void thread_execute()
 	{
