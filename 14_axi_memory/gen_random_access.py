@@ -53,5 +53,6 @@ def gen_random_access(filename_access="m_access.csv", filename_memory="s_memory.
 	f_memory.close()
 
 if __name__ == '__main__':
-#	gen_random_access(mode="any", data_width=128, n=1000)
-	gen_random_access(mode="any", length_max=4, is_length_variable=True, n=1000)
+#	gen_random_access(mode="any", n=1000)
+#	gen_random_access(mode="any", length_max=4, is_length_variable=True, n=1000)
+	gen_random_access(mode="any", length_max=100, is_length_variable=True, n=1000)

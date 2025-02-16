@@ -12,9 +12,33 @@ using namespace sc_dt;
 
 #include "axi_manager.h"
 
+void AXI_MANAGER::thread()
+{
+	on_reset();
+	wait();
+
+	while(true)
+	{
+		on_clock();
+		wait();
+	}
+}
+
+void AXI_MANAGER::on_clock()
+{
+	channel_manager();
+
+	channel_AW();
+	channel_W();
+	channel_B();
+	channel_AR();
+	channel_R();
+}
+
 void AXI_MANAGER::on_reset()
 {
-	event_queue.cancel_all();
+	latency_B = 0;
+	latency_R = 0;
 
 	AWVALID.write(0);
 	AWID.write(0);
@@ -35,116 +59,6 @@ void AXI_MANAGER::on_reset()
 
 	RREADY.write(0);
 
-}
-
-void AXI_MANAGER::channel_manager()
-{
-	std::string log_action = CHANNEL_UNKNOWN;
-	std::string log_detail = "";
-	
-	// Are there jobs to do?
-
-	if (queue_access.empty())
-	{
-		// No job to do.
-		log_action = CHANNEL_IDLE;
-		channel_log(CHANNEL_NAME_WRITER, log_action, log_detail);
-		return;
-	}
-
-	// queue access tuple: (timestamp, rw, address, length, data)
-	auto tuple = queue_access.front();
-	uint64_t value_stamp = std::get<0>(tuple);
-	char value_rw = std::get<1>(tuple);
-	uint64_t value_address = std::get<2>(tuple);
-	uint8_t value_length = std::get<3>(tuple);
-	bus_data_t value_data = std::get<4>(tuple);
-
-	// XXX Warning:
-	// sc_time_stamp().value() depends on the time resolution of the simulation.
-	// It is not guaranteed to be the same as the timestamp in the CSV file.
-	// So we assume that the timestamp in the CSV file is the NS(nano seconds),
-	// whereas the timestamp in the simulation is the PS(pico seconds).
-
-	uint64_t current_stamp = sc_time_stamp().value() / 1000; // ps to ns convert.
-
-	if (value_stamp > current_stamp)
-	{
-		// The time has not come yet
-		log_action = CHANNEL_HOLD;
-		log_detail = "scheduled=" + std::to_string(value_stamp)
-				+ ",now=" + std::to_string(current_stamp);
-		channel_log(CHANNEL_NAME_MANAGER, log_action, log_detail);
-		return;
-	}
-
-	queue_access.pop();
-
-	log_action = CHANNEL_ENQUEUE;
-	log_detail = "stamp=" + std::to_string(value_stamp)
-			+ ", rw=" + std::string{value_rw}
-			+ ", address=" + address_to_hex_string(value_address)
-			+ ", lendth=" + std::to_string(value_length)
-			+ ", data=" + bus_data_to_hex_string(value_data);
-
-	uint32_t transaction_id = generate_transaction_id();
-
-	if (value_rw == BUS_ACCESS_READ)
-	{
-		// tuple(ARID, ARADDR, ARLEN)
-		queue_AR.push(std::make_tuple(transaction_id, value_address, value_length - 1));
-
-		for (int follow = 0; follow < value_length - 1; follow ++)
-		{
-			// Ignore [length - 1] following entries.
-			// TODO: check whether ignored entries maintain access pattern integrity
-			queue_access.pop();
-		}
-	}
-	else if (value_rw == BUS_ACCESS_WRITE)
-	{
-		// tuple(AWID, AWADDR, AWLEN)
-		queue_AW.push(std::make_tuple(transaction_id, value_address, value_length - 1));
-
-		// Prepare next [length - 1] following entries, if any
-		for (int follow = 0; follow < value_length - 1; follow ++)
-		{
-			// Enqueue the existing entry
-			// tuple(WID, WDATA, WLAST)
-			queue_W.push(std::make_tuple(transaction_id, value_data, false));
-
-			// TODO: check whether ignored entries maintain access pattern integrity
-			auto follow_tuple = queue_access.front();
-			//uint64_t ignore_stamp = std::get<0>(tuple);
-			//char ignore_rw = std::get<1>(tuple);
-			//uint64_t ignore_address = std::get<2>(tuple);
-			//uint8_t ignore_length = std::get<3>(tuple);
-			bus_data_t value_data = std::get<4>(tuple);
-			log_detail += "," + bus_data_to_hex_string(value_data);
-
-			queue_access.pop();
-		}
-
-		// This is the last one, WLAST is true
-		// tuple(WID, WDATA, WLAST)
-		queue_W.push(std::make_tuple(transaction_id, value_data, true));
-	}
-	else
-	{
-		// This must not happen
-		log_detail += ",INVALID ACCESS TYPE";
-		channel_log(CHANNEL_NAME_MANAGER, log_action, log_detail);
-		SC_REPORT_ERROR("AXI_MANAGER", "Invalid access type");
-	}
-
-	channel_log(CHANNEL_NAME_MANAGER, log_action, log_detail);
-}
-
-void AXI_MANAGER::channel_log(std::string channel, std::string action, std::string detail)
-{
-	std::string out;
-	out = sc_time_stamp().to_string() + ":MANAGER:" + channel + ":" + action + ":" + detail;
-	std::cout << out << std::endl;
 }
 
 void AXI_MANAGER::channel_AW()
@@ -297,10 +211,10 @@ void AXI_MANAGER::channel_AR()
 		}
 		else
 		{
-			auto tuple = queue_AR.front();
-			uint32_t value_ARID = std::get<0>(tuple);
-			uint64_t value_ARADDR = std::get<1>(tuple);
-			uint8_t value_ARLEN = std::get<2>(tuple);
+			auto tuple_AR = queue_AR.front();
+			uint32_t value_ARID = std::get<0>(tuple_AR);
+			uint64_t value_ARADDR = std::get<1>(tuple_AR);
+			uint8_t value_ARLEN = std::get<2>(tuple_AR);
 
 			ARVALID = 1;
 			ARID = value_ARID;
@@ -309,13 +223,16 @@ void AXI_MANAGER::channel_AR()
 
 			queue_AR.pop();
 
-			auto existing = map_requests_AR.find(value_ARID);
-			if (existing != map_requests_AR.end())
+			// tuple (addr, length, amount_read_already)
+			auto tuple_R = std::make_tuple(value_ARADDR, value_ARLEN, 0);
+			auto iter = map_progress_R.find(value_ARID);
+			if (iter != map_progress_R.end())
 			{
-				uint64_t old_ARADDR = existing->first;
-				log_detail = ",duplicate id, old ARADDR=" + address_to_hex_string(old_ARADDR);
+				auto tuple_existing_R = iter->second;
+				uint64_t addr_old = std::get<0>(tuple_existing_R);
+				log_detail = ",duplicate id, old ARADDR=" + address_to_hex_string(addr_old);
 			}
-			map_requests_AR[value_ARID] = value_ARADDR;
+			map_progress_R[value_ARID] = tuple_R;
 
 			log_action = CHANNEL_INITIATE;
 			log_detail = "ARID=" + std::to_string(value_ARID)
@@ -367,17 +284,37 @@ void AXI_MANAGER::channel_R()
 		bus_data_t value_RDATA = RDATA;
 		bool value_RLAST = RLAST;
 
-		auto iter = map_requests_AR.find(value_RID);
-		if (iter != map_requests_AR.end())
+		auto iter = map_progress_R.find(value_RID);
+		if (iter != map_progress_R.end())
 		{
-			uint64_t addr = iter->second;
-			map_memory[addr] = value_RDATA;
-			map_requests_AR.erase(iter);
-			log_detail = ",ADDR=" + address_to_hex_string(addr);
+			// tuple_R (addr, length, count_read)
+			auto tuple_R = iter->second;
+			uint64_t addr_begin = std::get<0>(tuple_R);
+			uint8_t length = 1 + std::get<1>(tuple_R);
+			uint8_t count_read = std::get<2>(tuple_R);
+			uint64_t amount_addr_inc = DATA_WIDTH / 8;
+			uint64_t addr_to_read = addr_begin + amount_addr_inc * count_read;
+
+			map_memory[addr_to_read] = value_RDATA;
+
+			// update this tuple in the map_progress_R
+			count_read ++;
+			std::get<2>(iter->second) = count_read;
+
+			if (value_RLAST)
+			{
+				map_progress_R.erase(iter);
+			}
+
+			log_detail = ", ARADDR=" + address_to_hex_string(addr_begin)
+						+ ", addr=" + address_to_hex_string(addr_to_read)
+						+ ", part(" + std::to_string(count_read)
+						+ "/" + std::to_string(length) + ")";
+
 		}
 		else
 		{
-			log_detail = ",NOID";
+			log_detail = ", NOID";
 		}
 
 		log_action = CHANNEL_ACCEPT;
@@ -394,6 +331,117 @@ void AXI_MANAGER::channel_R()
 		log_action = CHANNEL_IDLE;
 	}
 	channel_log(CHANNEL_NAME_R, log_action, log_detail);
+}
+
+void AXI_MANAGER::channel_log(std::string channel, std::string action, std::string detail)
+{
+	std::string out;
+	out = sc_time_stamp().to_string() + ":MANAGER:" + channel + ":" + action + ":" + detail;
+	std::cout << out << std::endl;
+}
+
+void AXI_MANAGER::channel_manager()
+{
+	std::string log_action = CHANNEL_UNKNOWN;
+	std::string log_detail = "";
+	
+	// Are there jobs to do?
+
+	if (queue_access.empty())
+	{
+		// No job to do.
+		log_action = CHANNEL_IDLE;
+		channel_log(CHANNEL_NAME_WRITER, log_action, log_detail);
+		return;
+	}
+
+	// queue access tuple: (timestamp, rw, address, length, data)
+	auto tuple = queue_access.front();
+	uint64_t value_stamp = std::get<0>(tuple);
+	char value_rw = std::get<1>(tuple);
+	uint64_t value_address = std::get<2>(tuple);
+	uint8_t value_length = std::get<3>(tuple);
+	bus_data_t value_data = std::get<4>(tuple);
+
+	// XXX Warning:
+	// sc_time_stamp().value() depends on the time resolution of the simulation.
+	// It is not guaranteed to be the same as the timestamp in the CSV file.
+	// So we assume that the timestamp in the CSV file is the NS(nano seconds),
+	// whereas the timestamp in the simulation is the PS(pico seconds).
+
+	uint64_t current_stamp = sc_time_stamp().value() / 1000; // ps to ns convert.
+
+	if (value_stamp > current_stamp)
+	{
+		// The time has not come yet
+		log_action = CHANNEL_HOLD;
+		log_detail = "scheduled=" + std::to_string(value_stamp)
+				+ ",now=" + std::to_string(current_stamp);
+		channel_log(CHANNEL_NAME_MANAGER, log_action, log_detail);
+		return;
+	}
+
+	queue_access.pop();
+
+	uint32_t transaction_id = generate_transaction_id();
+
+	log_action = CHANNEL_ENQUEUE;
+	log_detail = "stamp=" + std::to_string(value_stamp)
+			+ ", id=" + std::to_string(transaction_id)
+			+ ", rw=" + std::string{value_rw}
+			+ ", address=" + address_to_hex_string(value_address)
+			+ ", length=" + std::to_string(value_length)
+			+ ", data=" + bus_data_to_hex_string(value_data);
+
+	if (value_rw == BUS_ACCESS_READ)
+	{
+		// tuple(ARID, ARADDR, ARLEN)
+		queue_AR.push(std::make_tuple(transaction_id, value_address, value_length - 1));
+
+		for (int follow = 0; follow < value_length - 1; follow ++)
+		{
+			// Ignore [length - 1] following entries.
+			// TODO: check whether ignored entries maintain access pattern integrity
+			queue_access.pop();
+		}
+	}
+	else if (value_rw == BUS_ACCESS_WRITE)
+	{
+		// tuple(AWID, AWADDR, AWLEN)
+		queue_AW.push(std::make_tuple(transaction_id, value_address, value_length - 1));
+
+		// Prepare next [length - 1] following entries, if any
+		for (int follow = 0; follow < value_length - 1; follow ++)
+		{
+			// Enqueue the existing entry
+			// tuple(WID, WDATA, WLAST)
+			queue_W.push(std::make_tuple(transaction_id, value_data, false));
+
+			// TODO: check whether ignored entries maintain access pattern integrity
+			auto follow_tuple = queue_access.front();
+			//uint64_t ignore_stamp = std::get<0>(tuple);
+			//char ignore_rw = std::get<1>(tuple);
+			//uint64_t ignore_address = std::get<2>(tuple);
+			//uint8_t ignore_length = std::get<3>(tuple);
+			value_data = std::get<4>(follow_tuple);
+			log_detail += ", " + bus_data_to_hex_string(value_data);
+
+			queue_access.pop();
+		}
+
+		// This is the last one, WLAST is true
+		// tuple(WID, WDATA, WLAST)
+		queue_W.push(std::make_tuple(transaction_id, value_data, true));
+	}
+	else
+	{
+		// This must not happen
+		log_detail += ",INVALID ACCESS TYPE";
+		channel_log(CHANNEL_NAME_MANAGER, log_action, log_detail);
+		SC_REPORT_ERROR("AXI_MANAGER", "Invalid access type. It must be R or W");
+	}
+
+	channel_log(CHANNEL_NAME_MANAGER, log_action, log_detail);
 }
 
 uint32_t AXI_MANAGER::generate_transaction_id()
@@ -479,15 +527,4 @@ void AXI_MANAGER::write_memory_csv(const char *filename)
 		f << "0x" << std::setfill('0') << std::setw(ADDR_WIDTH / 4) << std::hex << address;
 		f << ","  << std::setfill('0') << std::setw(DATA_WIDTH / 4) << data.to_string(SC_HEX) << std::endl;
 	}
-}
-
-void AXI_MANAGER::on_clock()
-{
-	channel_manager();
-
-	channel_AW();
-	channel_W();
-	channel_B();
-	channel_AR();
-	channel_R();
 }

@@ -1,3 +1,4 @@
+#include <systemc>
 #include <fstream>
 #include <queue>
 #include <sstream>
@@ -61,23 +62,24 @@ SC_MODULE(AXI_MANAGER)
 	// queue AR tuple: (ARID, ARADDR, ARLEN)
 	std::queue<std::tuple<uint32_t, uint64_t, uint8_t>> queue_AR;
 
-	// pair<ARID, ARADDR>
-	std::unordered_map<uint32_t, uint64_t> map_requests_AR;
-
+	// pair<ARID, contents>
+	// contents tuple: (ARADDR, ARLEN, amount_sent_already)
+	std::unordered_map<uint32_t, std::tuple<uint64_t, uint8_t, uint8_t>> map_progress_R;
 
 	// for latency countdown
 	int latency_B;
 	int latency_R;
-	
-	sc_event_queue event_queue;
 
 	SC_CTOR(AXI_MANAGER)
 	{
-		SC_THREAD(thread_execute);
-		sensitive << ACLK << ARESETn << event_queue;
+		SC_CTHREAD(thread, ACLK);
+		async_reset_signal_is(ARESETn, false);
 	}
 
-	void channel_manager();
+	void thread();
+	void on_clock();
+	void on_reset();
+
 	void channel_AW();
 	void channel_W();
 	void channel_B();
@@ -85,26 +87,10 @@ SC_MODULE(AXI_MANAGER)
 	void channel_R();
 
 	void channel_log(std::string channel, std::string action, std::string detail);
+	void channel_manager();
 
 	uint32_t generate_transaction_id();
 
-	void on_reset();
-	void on_clock();
 	void read_access_csv();
 	void write_memory_csv(const char* filename);
-	void thread_execute()
-	{
-		while(true)
-		{
-			if (ARESETn == 0)
-			{
-				on_reset();
-			}
-			else if (ACLK.posedge())
-			{
-				on_clock();
-			}
-			wait();			
-		}
-	}
 };

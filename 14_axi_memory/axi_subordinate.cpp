@@ -13,6 +13,52 @@ using namespace sc_dt;
 
 #include "axi_subordinate.h"
 
+void AXI_SUBORDINATE::thread()
+{
+	on_reset();
+	wait();
+
+	while(true)
+	{
+		on_clock();
+		wait();
+	}
+}
+
+void AXI_SUBORDINATE::on_clock()
+{
+	channel_writer();
+	channel_reader();
+
+	channel_AW();
+	channel_W();
+	channel_B();
+	channel_AR();
+	channel_R();
+}
+
+void AXI_SUBORDINATE::on_reset()
+{
+	requests_AR.clear();
+
+	latency_AW = 0;
+	latency_W = 0;
+	latency_AR = 0;
+
+	is_last_W = false;
+	id_last_W = 0;
+
+	AWREADY.write(0);
+	WREADY.write(0);
+	BVALID.write(0);
+	BID.write(0);
+	ARREADY.write(0);
+	RVALID.write(0);
+	RID.write(0);
+	RDATA.write(BUS_DATA_ZERO);
+	RLAST.write(0);
+}
+
 void AXI_SUBORDINATE::channel_AW()
 {
 	std::string log_action = CHANNEL_UNKNOWN;
@@ -37,21 +83,23 @@ void AXI_SUBORDINATE::channel_AW()
 		uint32_t value_AWID = AWID;
 		uint64_t value_AWADDR = AWADDR;
 		uint8_t value_AWLEN = AWLEN;
-		auto tuple = std::make_tuple(value_AWID, value_AWADDR, value_AWLEN);
+
+		// tuple_W (addr, length, amount_written_already)
+		auto tuple_W = std::make_tuple(value_AWADDR, value_AWLEN, 0);
+
+		auto iter = map_progress_W.find(value_AWID);
+		if (iter != map_progress_W.end())
+		{
+			auto tuple_existing_W = iter->second;
+			uint64_t addr_old = std::get<0>(tuple_existing_W);
+			log_detail = ",duplicate id, old AWADDR=" + address_to_hex_string(addr_old);
+		}
+		map_progress_W[value_AWID] = tuple_W;
 
 		log_action = CHANNEL_ACCEPT;
 		log_detail = "AWID=" + std::to_string(value_AWID)
 					+ ", AWADDR=" + address_to_hex_string(value_AWADDR)
 					+ ", AWLEN=" + std::to_string(value_AWLEN);
-
-		if (std::find(requests_AW.begin(), requests_AW.end(), tuple) != requests_AW.end())
-		{
-			// Request already exists.
-			// Even duplicate, we still need to accept it.
-			log_detail += ",DUPLICATE";
-		}
-
-		requests_AW.push_back(tuple);
 
 		AWREADY = 0;
 		latency_AW = LATENCY_READY_AW;
@@ -74,6 +122,12 @@ void AXI_SUBORDINATE::channel_W()
 		latency_W --;
 		if (latency_W <= 0)
 		{
+			if (is_last_W)
+			{
+				queue_B.push(id_last_W);
+				is_last_W = false;
+				id_last_W = 0;
+			}
 			WREADY = 1;
 			log_action = CHANNEL_READY;
 		}
@@ -88,21 +142,53 @@ void AXI_SUBORDINATE::channel_W()
 		uint32_t value_WID = WID;
 		bus_data_t value_WDATA = WDATA;
 		bool value_WLAST = WLAST;
-		auto tuple = std::make_tuple(value_WID, value_WDATA, value_WLAST);
+
+		auto iter = map_progress_W.find(value_WID);
+		if (iter != map_progress_W.end())
+		{
+			// tuple_W (addr, length, count_written)
+			auto tuple_W = iter->second;
+			uint64_t addr_begin = std::get<0>(tuple_W);
+			uint8_t length = 1 + std::get<1>(tuple_W);
+			uint8_t count_written = std::get<2>(tuple_W);
+			uint64_t amount_addr_inc = DATA_WIDTH / 8;
+			uint64_t addr_to_write = addr_begin + amount_addr_inc * count_written;
+
+			map_memory[addr_to_write] = value_WDATA;
+
+			// update this tuple in the map_progress_W
+			count_written ++;
+			std::get<2>(iter->second) = count_written;
+
+			log_detail = ", AWADDR=" + address_to_hex_string(addr_begin)
+						+ ", addr=" + address_to_hex_string(addr_to_write)
+						+ ", part(" + std::to_string(count_written)
+						+ "/" + std::to_string(length) + ")";
+
+			uint8_t count_new = std::get<2>(iter->second);
+			if (count_new != count_written)
+			{
+				log_detail += ", count_new=" + std::to_string(count_new);
+			}
+
+			if (value_WLAST)
+			{
+				is_last_W = true;
+				id_last_W = value_WID;
+				map_progress_W.erase(iter);
+			}
+
+		}
+		else
+		{
+			log_detail = ", NOID";
+		}
 
 		log_action = CHANNEL_ACCEPT;
 		log_detail = "WID=" + std::to_string(value_WID)
 					+ ", WDATA=" + bus_data_to_hex_string(value_WDATA)
-					+ ", WLAST=" + std::to_string(value_WLAST);
-
-		if (std::find(requests_W.begin(), requests_W.end(), tuple) != requests_W.end())
-		{
-			// Request already exists.
-			// Even duplicate, we still need to accept it.
-			log_detail += ",DUPLICATE";
-		}
-
-		requests_W.push_back(tuple);
+					+ ", WLAST=" + std::to_string(value_WLAST)
+					+ log_detail;
 
 		WREADY = 0;
 		latency_W = LATENCY_READY_W;
@@ -180,21 +266,21 @@ void AXI_SUBORDINATE::channel_AR()
 		uint32_t value_ARID = ARID;
 		uint64_t value_ARADDR = ARADDR;
 		uint8_t value_ARLEN = ARLEN;
-		auto tuple = std::make_tuple(value_ARID, value_ARADDR, value_ARLEN);
+		auto tuple_AR = std::make_tuple(value_ARID, value_ARADDR, value_ARLEN);
 
 		log_action = CHANNEL_ACCEPT;
 		log_detail = "ARID=" + std::to_string(value_ARID)
 					+ ", ARADDR=" + address_to_hex_string(value_ARADDR)
 					+ ", ARLEN=" + std::to_string(value_ARLEN);
 
-		if (std::find(requests_AR.begin(), requests_AR.end(), tuple) != requests_AR.end())
+		if (std::find(requests_AR.begin(), requests_AR.end(), tuple_AR) != requests_AR.end())
 		{
 			// Request already exists.
 			// Even duplicate, we still need to accept it.
 			log_detail += ",DUPLICATE";
 		}
 
-		requests_AR.push_back(tuple);
+		requests_AR.push_back(tuple_AR);
 
 		ARREADY = 0;
 		latency_AR = LATENCY_READY_AR;
@@ -279,126 +365,65 @@ void AXI_SUBORDINATE::channel_reader()
 		return;
 	}
 
+	// tuple_AR (ARID, ARADDR, ARLEN)
 	for (auto tuple_AR: requests_AR)
 	{
 		uint32_t value_ARID = std::get<0>(tuple_AR);
 		uint64_t value_ARADDR = std::get<1>(tuple_AR);
 		uint8_t value_ARLEN = std::get<2>(tuple_AR);
-		bus_data_t value_RDATA;
 
-		if (map_memory.find(value_ARADDR) != map_memory.end())
+		uint64_t addr_to_read = value_ARADDR;
+		uint8_t count_addr_read = 0;
+		uint64_t amount_addr_increase = DATA_WIDTH / 8;
+		bus_data_t data_to_read;
+		bool is_last = false;
+
+		do
 		{
-			bus_data_t value_RDATA = map_memory[value_ARADDR];
-			log_detail = ",RDATA=" + bus_data_to_hex_string(value_RDATA);
-			auto tuple_R = std::make_tuple(value_ARID, value_RDATA, 1);
-			queue_R.push(tuple_R);
-		}
-		else
-		{
-			log_detail = ",NOADDR";
-		}
+			if (count_addr_read == value_ARLEN)
+			{
+				is_last = true;
+			}
+
+			if (map_memory.find(addr_to_read) != map_memory.end())
+			{
+				data_to_read = map_memory[addr_to_read];
+				log_detail += bus_data_to_hex_string(data_to_read);
+	
+				// tuple_R (RID, RDATA, RLAST)
+				auto tuple_R = std::make_tuple(value_ARID, data_to_read, is_last);
+				queue_R.push(tuple_R);
+			}
+			else
+			{
+				log_detail += "NODATA";
+			}
+
+			if (is_last == false)
+			{
+				log_detail += ", ";
+			}
+	
+			// prepare for the next read
+			count_addr_read ++;
+			addr_to_read += amount_addr_increase;
+
+		} while (count_addr_read <= value_ARLEN);
 
 		log_action = CHANNEL_READ;
 		log_detail = "ARID=" + std::to_string(value_ARID)
-					+ ",ARADDR=" + address_to_hex_string(value_ARADDR)
-					+ ",ARLEN=" + std::to_string(value_ARLEN)
-					+ log_detail;
+					+ ", ARADDR=" + address_to_hex_string(value_ARADDR)
+					+ ", ARLEN=" + std::to_string(value_ARLEN)
+					+ ", data=" + log_detail;
+		channel_log(CHANNEL_NAME_READER, log_action, log_detail);
 	}
+
 	requests_AR.clear();
-	channel_log(CHANNEL_NAME_READER, log_action, log_detail);
 }
 
 void AXI_SUBORDINATE::channel_writer()
 {
-	std::string log_action = CHANNEL_UNKNOWN;
-	std::string log_detail = "";
-
 	// Are there jobs to do?
-	if (requests_AW.size() == 0 || requests_W.size() == 0)
-	{
-		// No job for memory write.
-		log_action = CHANNEL_IDLE;
-		channel_log(CHANNEL_NAME_WRITER, log_action, log_detail);
-		return;
-	}
-
-	int count_AW = requests_AW.size();
-	int count_W = requests_W.size();
-
-	for (auto tuple_W : requests_W)
-	{
-		uint32_t value_WID = std::get<0>(tuple_W);
-		bus_data_t value_WDATA = std::get<1>(tuple_W);
-		bool value_WLAST = std::get<2>(tuple_W);
-
-		for (auto tuple_AW : requests_AW)
-		{
-			uint32_t value_AWID = std::get<0>(tuple_AW);
-			uint64_t value_AWADDR = std::get<1>(tuple_AW);
-			uint8_t value_AWLEN = std::get<2>(tuple_AW);
-
-			if (value_AWID != value_WID)
-			{				
-				continue;
-			}
-
-			log_action = CHANNEL_WRITE;
-			if (map_memory.find(value_AWADDR) != map_memory.end())
-			{
-				bus_data_t value_WDATA_OLD = map_memory[value_AWADDR];
-				log_detail = ",OLD=" + bus_data_to_hex_string(value_WDATA_OLD) + ",OVERWRITE";
-			}
-
-			map_memory[value_AWADDR] = value_WDATA;
-
-			log_detail = "WID=" + std::to_string(value_WID)
-						+ ",AWADDR=" + address_to_hex_string(value_AWADDR)
-						+ ",WDATA=" + bus_data_to_hex_string(value_WDATA)
-						+ ",AWLEN=" + std::to_string(value_AWLEN)
-						+ ",WLAST=" + std::to_string(value_WLAST)
-						+ log_detail;
-
-			// Remove from request queue.
-			requests_AW.erase(std::remove(requests_AW.begin(), requests_AW.end(), tuple_AW), requests_AW.end());
-			requests_W.erase(std::remove(requests_W.begin(), requests_W.end(), tuple_W), requests_W.end());
-
-			// Add to response queue.
-			queue_B.push(value_AWID);
-			channel_log(CHANNEL_NAME_WRITER, log_action, log_detail);
-			return;
-		}
-
-		// code cannot reach here if found.
-		log_action = CHANNEL_NO_MATCH;
-		log_detail = "WID=" + std::to_string(value_WID)
-					+ ",WDATA=" + bus_data_to_hex_string(value_WDATA)
-					+ ",WLAST=" + std::to_string(value_WLAST)
-					+ "countAW=" + std::to_string(count_AW) + ",countW=" + std::to_string(count_W);
-		channel_log(CHANNEL_NAME_WRITER, log_action, log_detail);
-
-		// We can contiue for the next match.
-		// Therefore, this may generate many 'NOMATCH' channel logs during single clock cycle.
-	}
-}
-
-void AXI_SUBORDINATE::on_reset()
-{
-	event_queue.cancel_all();
-	requests_AW.clear();
-	requests_W.clear();
-
-	latency_AW = 0;
-	latency_W = 0;
-
-	AWREADY.write(0);
-	WREADY.write(0);
-	BVALID.write(0);
-	BID.write(0);
-	ARREADY.write(0);
-	RVALID.write(0);
-	RID.write(0);
-	RDATA.write(BUS_DATA_ZERO);
-	RLAST.write(0);
 }
 
 void AXI_SUBORDINATE::read_memory_csv()
@@ -455,14 +480,3 @@ void AXI_SUBORDINATE::write_memory_csv(const char *filename)
 	}
 }
 
-void AXI_SUBORDINATE::on_clock()
-{
-	channel_writer();
-	channel_reader();
-
-	channel_AW();
-	channel_W();
-	channel_B();
-	channel_AR();
-	channel_R();
-}

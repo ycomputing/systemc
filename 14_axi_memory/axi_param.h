@@ -11,8 +11,6 @@
 #define BUS_ACCESS_READ 'R'
 #define BUS_ACCESS_WRITE 'W'
 
-#define DATA_WIDTH_BYTE	16 (DATA_WIDTH/8)
-
 typedef sc_dt::sc_bigint<128> bus_data_t;
 
 #define BUS_DATA_ZERO	0
