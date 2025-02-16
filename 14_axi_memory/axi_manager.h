@@ -49,8 +49,8 @@ SC_MODULE(AXI_MANAGER)
 	// pair<address, data>
 	std::unordered_map<uint64_t, bus_data_t> map_memory;
 
-	// queue access tuple: (timestamp, access_type(r/w), address, data)
-	std::queue<std::tuple<uint64_t, char, uint64_t, bus_data_t>> queue_access;
+	// queue access tuple: (timestamp, access_type(r/w), address, length, data)
+	std::queue<std::tuple<uint64_t, char, uint64_t, uint8_t, bus_data_t>> queue_access;
 
 	// queue AW tuple: (AWID, AWADDR, AWLEN)
 	std::queue<std::tuple<uint32_t, uint64_t, uint8_t>> queue_AW;

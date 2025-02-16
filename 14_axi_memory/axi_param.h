@@ -49,12 +49,19 @@ typedef sc_dt::sc_bigint<128> bus_data_t;
 #define CHANNEL_WRITE		"WRITE"
 
 // unit of latency is in clock cycles
-
+/*
 #define LATENCY_READY_AW	10
 #define LATENCY_READY_W		20
 #define LATENCY_READY_B		3
 #define LATENCY_READY_AR	10
 #define LATENCY_READY_R		20
+*/
+
+#define LATENCY_READY_AW	0
+#define LATENCY_READY_W		0
+#define LATENCY_READY_B		0
+#define LATENCY_READY_AR	0
+#define LATENCY_READY_R		0
 
 
 // conversion utility functions

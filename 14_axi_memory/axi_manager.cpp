@@ -52,12 +52,13 @@ void AXI_MANAGER::channel_manager()
 		return;
 	}
 
-	// queue access tuple: (timestamp, rw, address, data)
+	// queue access tuple: (timestamp, rw, address, length, data)
 	auto tuple = queue_access.front();
 	uint64_t value_stamp = std::get<0>(tuple);
 	char value_rw = std::get<1>(tuple);
 	uint64_t value_address = std::get<2>(tuple);
-	bus_data_t value_data = std::get<3>(tuple);
+	uint8_t value_length = std::get<3>(tuple);
+	bus_data_t value_data = std::get<4>(tuple);
 
 	// XXX Warning:
 	// sc_time_stamp().value() depends on the time resolution of the simulation.
@@ -83,23 +84,50 @@ void AXI_MANAGER::channel_manager()
 	log_detail = "stamp=" + std::to_string(value_stamp)
 			+ ", rw=" + std::string{value_rw}
 			+ ", address=" + address_to_hex_string(value_address)
+			+ ", lendth=" + std::to_string(value_length)
 			+ ", data=" + bus_data_to_hex_string(value_data);
 
-	// TODO: Implement IDs for AW, W, AR, R
 	uint32_t transaction_id = generate_transaction_id();
 
 	if (value_rw == BUS_ACCESS_READ)
 	{
 		// tuple(ARID, ARADDR, ARLEN)
-		queue_AR.push(std::make_tuple(transaction_id, value_address, 1));
+		queue_AR.push(std::make_tuple(transaction_id, value_address, value_length - 1));
+
+		for (int follow = 0; follow < value_length - 1; follow ++)
+		{
+			// Ignore [length - 1] following entries.
+			// TODO: check whether ignored entries maintain access pattern integrity
+			queue_access.pop();
+		}
 	}
 	else if (value_rw == BUS_ACCESS_WRITE)
 	{
 		// tuple(AWID, AWADDR, AWLEN)
-		queue_AW.push(std::make_tuple(transaction_id, value_address, 1));
+		queue_AW.push(std::make_tuple(transaction_id, value_address, value_length - 1));
 
+		// Prepare next [length - 1] following entries, if any
+		for (int follow = 0; follow < value_length - 1; follow ++)
+		{
+			// Enqueue the existing entry
+			// tuple(WID, WDATA, WLAST)
+			queue_W.push(std::make_tuple(transaction_id, value_data, false));
+
+			// TODO: check whether ignored entries maintain access pattern integrity
+			auto follow_tuple = queue_access.front();
+			//uint64_t ignore_stamp = std::get<0>(tuple);
+			//char ignore_rw = std::get<1>(tuple);
+			//uint64_t ignore_address = std::get<2>(tuple);
+			//uint8_t ignore_length = std::get<3>(tuple);
+			bus_data_t value_data = std::get<4>(tuple);
+			log_detail += "," + bus_data_to_hex_string(value_data);
+
+			queue_access.pop();
+		}
+
+		// This is the last one, WLAST is true
 		// tuple(WID, WDATA, WLAST)
-		queue_W.push(std::make_tuple(transaction_id, value_data, 1));
+		queue_W.push(std::make_tuple(transaction_id, value_data, true));
 	}
 	else
 	{
@@ -393,18 +421,31 @@ void AXI_MANAGER::read_access_csv()
 	std::string line;
 	while (std::getline(f, line))
 	{
-		std::tuple<uint64_t, char, uint64_t, bus_data_t> row;
 		std::istringstream iss(line);
 		u_int64_t stamp;
 		char rw;
 		uint64_t address;
+		uint8_t length;
 		bus_data_t data;
-		std::string token1, token2, token3, token4;
+		std::string token1, token2, token3, token4, token5;
+
+		// line format
+		// stamp, R/W, address, length, data
+		//
+		// stamp: integer, simulation time in nano second
+		// R/W: character, 'R' or 'W', to indicate read or write action
+		// address: hex string, 64 bit, address to read or write
+		// length: integer, how many data to transfer at one transaction
+		// data: hex string, 128 bit, data to transfer
+
+		std::tuple<uint64_t, char, uint64_t, uint8_t, bus_data_t> row;
+
 		std::getline(iss, token1, ',');
 		std::getline(iss, token2, ',');
 		std::getline(iss, token3, ',');
 		std::getline(iss, token4, ',');
-		if (token1.empty() || token2.empty() || token3.empty() || token4.empty())
+		std::getline(iss, token5, ',');
+		if (token1.empty() || token2.empty() || token3.empty() || token4.empty() || token5.empty())
 		{
 			std::cerr << "Error: invalid format in " << filename_access << std::endl;
 			std::cerr << "At line (" << line_number << "): " << line << std::endl;
@@ -413,8 +454,9 @@ void AXI_MANAGER::read_access_csv()
 		stamp = std::stoull(token1);
 		rw = token2[0];
 		address = std::stoull(token3, nullptr, 16);
-		data = token4.c_str();
-		row = std::make_tuple(stamp, rw, address, data);
+		length = std::stoul(token4);
+		data = token5.c_str();
+		row = std::make_tuple(stamp, rw, address, length, data);
 		queue_access.push(row);
 		line_number ++;
 	}
