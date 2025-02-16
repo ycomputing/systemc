@@ -190,8 +190,20 @@ void AXI_SUBORDINATE::channel_W()
 					+ ", WLAST=" + std::to_string(value_WLAST)
 					+ log_detail;
 
-		WREADY = 0;
-		latency_W = LATENCY_READY_W;
+		if (LATENCY_READY_W == 0)
+		{
+			if (is_last_W)
+			{
+				queue_B.push(id_last_W);
+				is_last_W = false;
+				id_last_W = 0;
+			}
+		}
+		else
+		{
+			WREADY = 0;
+			latency_W = LATENCY_READY_W;
+		}
 	}
 	else	// ready but not valid
 	{
@@ -252,6 +264,12 @@ void AXI_SUBORDINATE::channel_AR()
 		latency_AR --;
 		if (latency_AR <= 0)
 		{
+			if (has_delayed_tuple_AR)
+			{
+				requests_AR.push_back(delayed_tuple_AR);
+				has_delayed_tuple_AR = false;
+			}
+
 			ARREADY = 1;
 			log_action = CHANNEL_READY;
 		}
@@ -280,7 +298,8 @@ void AXI_SUBORDINATE::channel_AR()
 			log_detail += ",DUPLICATE";
 		}
 
-		requests_AR.push_back(tuple_AR);
+		has_delayed_tuple_AR = true;
+		delayed_tuple_AR = tuple_AR;
 
 		ARREADY = 0;
 		latency_AR = LATENCY_READY_AR;

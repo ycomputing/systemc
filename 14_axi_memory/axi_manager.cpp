@@ -116,20 +116,30 @@ void AXI_MANAGER::channel_W()
 	std::string log_action = CHANNEL_UNKNOWN;
 	std::string log_detail = "";
 
-	if (WVALID == 0)
+	if (!queue_W.empty())
 	{
-		if (queue_W.empty())
+		if (WREADY == 0 && WVALID == 1)
 		{
-			// No job to do.
-			log_action = CHANNEL_IDLE;
-			log_detail = "";
+			// The receiver did not take current data yet.
+			// We have to wait until the receiver is ready
+			log_action = CHANNEL_WAIT;
 		}
 		else
 		{
+			// receiver is ready. send new data
 			auto tuple = queue_W.front();
 			uint32_t value_WID = std::get<0>(tuple);
 			bus_data_t value_WDATA = std::get<1>(tuple);
 			bool value_WLAST = std::get<2>(tuple);
+
+			if (WVALID == 1)
+			{
+				log_action = CHANNEL_SENDING;
+			}
+			else
+			{
+				log_action = CHANNEL_SEND;
+			}
 
 			WVALID = 1;
 			WID = value_WID;
@@ -137,28 +147,39 @@ void AXI_MANAGER::channel_W()
 			WLAST = value_WLAST;
 
 			queue_W.pop();
-			log_action = CHANNEL_INITIATE;
 			log_detail = "WID=" + std::to_string(value_WID)
 					+ ", WDATA=" + bus_data_to_hex_string(value_WDATA)
 					+ ", WLAST=" + std::to_string(value_WLAST);
+
 		}
 	}
-	else
+	else // Q is empty
 	{
 		if (WREADY == 1)
 		{
+			// No more data to send.
+
 			WVALID = 0;
 			WID = 0;
 			WDATA = BUS_DATA_ZERO;
 			WLAST = 0;
 
-			log_action = CHANNEL_COMPLETE;
+			log_action = CHANNEL_SENT;
+			log_detail = "";
 		}
-		else
+		else	// empty Q and not ready
 		{
-			log_action = CHANNEL_WAIT;
+			if (WVALID == 1)
+			{
+				log_action = CHANNEL_WAIT;
+			}
+			else
+			{
+				log_action = CHANNEL_IDLE;
+			}
 		}
 	}
+
 	channel_log(CHANNEL_NAME_W, log_action, log_detail);
 }
 

@@ -41,7 +41,11 @@ typedef sc_dt::sc_bigint<128> bus_data_t;
 #define CHANNEL_OKAY		"OKAY"
 #define CHANNEL_READ		"READ"
 #define CHANNEL_READY		"READY"
+#define CHANNEL_RECV		"RECV"
 #define CHANNEL_RESPONSE	"RESPONSE"
+#define CHANNEL_SEND		"SEND"
+#define CHANNEL_SENDING		"SENDING"
+#define CHANNEL_SENT		"SENT"
 #define CHANNEL_UNKNOWN		"UNKNOWN"
 #define CHANNEL_WAIT		"WAIT"
 #define CHANNEL_WRITE		"WRITE"
@@ -52,8 +56,9 @@ typedef sc_dt::sc_bigint<128> bus_data_t;
 #define LATENCY_READY_W		20
 #define LATENCY_READY_B		3
 #define LATENCY_READY_AR	10
-#define LATENCY_READY_R		20
+#define LATENCY_READY_R		5
 */
+
 
 #define LATENCY_READY_AW	0
 #define LATENCY_READY_W		0
@@ -61,6 +66,14 @@ typedef sc_dt::sc_bigint<128> bus_data_t;
 #define LATENCY_READY_AR	0
 #define LATENCY_READY_R		0
 
+
+/*
+#define LATENCY_READY_AW	100
+#define LATENCY_READY_W		20
+#define LATENCY_READY_B		3
+#define LATENCY_READY_AR	100
+#define LATENCY_READY_R		5
+*/
 
 // conversion utility functions
 

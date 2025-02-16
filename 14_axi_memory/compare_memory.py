@@ -32,11 +32,9 @@ def read_file_access(filename):
 	f.close()
 	return dict
 
-if __name__ == "__main__":
-	filename_access = "m_access.csv"
-	filename_memory_m = "m_memory_after.csv"
-	filename_memory_s = "s_memory_after.csv"
-
+def compare_memory(filename_access="m_access.csv",
+			filename_memory_m="m_memory_after.csv",
+			filename_memory_s="s_memory_after.csv"):
 	dict_access = read_file_access(filename_access)
 	dict_m = read_file_memory(filename_memory_m)
 	dict_s = read_file_memory(filename_memory_s)
@@ -69,4 +67,13 @@ if __name__ == "__main__":
 				count_write_pass += 1
 		else:
 			print("UNKNOWN action: address %s" %(addr))
+
 	print("passed %s/%s read, %s/%s write actions" % (count_read_pass, count_read, count_write_pass, count_write))
+
+	if (count_read_pass == count_read) and (count_write_pass == count_write):
+		return 0
+	else:
+		return 1
+
+if __name__ == "__main__":
+	compare_memory()

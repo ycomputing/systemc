@@ -70,6 +70,10 @@ SC_MODULE(AXI_SUBORDINATE)
 	bool is_last_W;
 	uint32_t id_last_W;
 
+	bool has_delayed_tuple_AR;
+	// tuple<ARID, ARADDR, ARLEN>
+	std::tuple<uint32_t, uint64_t, uint8_t>	delayed_tuple_AR;
+
 	const char *filename_memory = "s_memory.csv";
 
 	SC_CTOR(AXI_SUBORDINATE)

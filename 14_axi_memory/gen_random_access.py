@@ -1,6 +1,19 @@
 #!/usr/bin/env python3
 import random
 
+def random_gen_random_access():
+	mode = "any"
+	length_max = random.randint(1, 100)
+	is_length_variable = random.choice([True, False])
+	stamp_start = random.randint(100, 500)
+	stamp_step_min = random.randint(1, 10)
+	n = random.randint(1, 1000)
+
+	gen_random_access (mode=mode,
+			length_max=length_max, is_length_variable=is_length_variable,
+			stamp_start=stamp_start, stamp_step_min=stamp_step_min,
+			n=n)
+
 def gen_random_access(filename_access="m_access.csv", filename_memory="s_memory.csv",
 					  address_bus_width=64, data_bus_width=128, mode="R",
 					  length_max=1, is_length_variable=False,
@@ -9,7 +22,6 @@ def gen_random_access(filename_access="m_access.csv", filename_memory="s_memory.
 	address_mask = (2**(address_bus_width) - 1) ^ ((data_bus_width//8)-1)
 	zero_data_str = "0x" + "0"*(data_bus_width//4)
 
-	random.seed(0)  # for reproducibility
 	f_access = open(filename_access, "w")
 	f_memory = open(filename_memory, "w")
 	stamp = stamp_start
@@ -53,6 +65,10 @@ def gen_random_access(filename_access="m_access.csv", filename_memory="s_memory.
 	f_memory.close()
 
 if __name__ == '__main__':
+	random.seed(0)  # for reproducibility
+#	gen_random_access()
 #	gen_random_access(mode="any", n=1000)
 #	gen_random_access(mode="any", length_max=4, is_length_variable=True, n=1000)
-	gen_random_access(mode="any", length_max=100, is_length_variable=True, n=1000)
+#	gen_random_access(mode="any", length_max=100, is_length_variable=True, n=1000)
+#	gen_random_access(mode="any", length_max=4, is_length_variable=True, stamp_step_min=2, stamp_step_max=4, n=1000)
+	gen_random_access(mode="any", length_max=8, is_length_variable=True, stamp_step_min=1, stamp_step_max=2, n=1000)
