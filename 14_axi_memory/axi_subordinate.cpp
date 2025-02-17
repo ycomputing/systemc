@@ -217,37 +217,54 @@ void AXI_SUBORDINATE::channel_B()
 	std::string log_action = CHANNEL_UNKNOWN;
 	std::string log_detail = "";
 
-	if (BVALID == 0)
+	if (!queue_B.empty())
 	{
-		if (queue_B.empty())
+		if (BREADY == 0 && BVALID == 1)
 		{
-			// No job to do.
-			log_action = CHANNEL_IDLE;
-			log_detail = "";
+			log_action = CHANNEL_WAITR;
 		}
 		else
 		{
 			uint32_t value_BID = queue_B.front();
 
+			if (BVALID == 1)
+			{
+				log_action = CHANNEL_SENDC;
+			}
+			else
+			{
+				log_action = CHANNEL_SEND;
+			}
+
 			BVALID = 1;
 			BID = value_BID;
 
 			queue_B.pop();
-			log_action = CHANNEL_INITIATE;
+
 			log_detail = "BID=" + std::to_string(value_BID);
 		}
 	}
-	else
+	else	// Q is empty
 	{
 		if (BREADY == 1)
 		{
+			// No more data to send
 			BVALID = 0;
 			BID = 0;
-			log_action = CHANNEL_COMPLETE;
+
+			log_action = CHANNEL_SENDQ;
+			log_detail = "";
 		}
-		else
+		else	// empty Q and not ready
 		{
-			log_action = CHANNEL_WAIT;
+			if (WVALID == 1)
+			{
+				log_action = CHANNEL_WAITR;
+			}
+			else
+			{
+				log_action = CHANNEL_IDLE;
+			}
 		}
 	}
 	channel_log(CHANNEL_NAME_B, log_action, log_detail);
@@ -317,20 +334,33 @@ void AXI_SUBORDINATE::channel_R()
 	std::string log_action = CHANNEL_UNKNOWN;
 	std::string log_detail = "";
 
-	if (RVALID == 0)
+	if (!queue_R.empty())
 	{
-		if (queue_R.empty())
+		if (RREADY == 0 && RVALID == 1)
 		{
-			// No job to do.
-			log_action = CHANNEL_IDLE;
-			log_detail = "";
+			// The receiver did not take current data yet.
+			// We have to wait until the receiver is ready
+			log_action = CHANNEL_WAITR;
 		}
 		else
 		{
+			// on the page 38 of AXI protocol PDF,
+			// Figure A 3.2 VALID before READY handshake, OR
+			// Figure A 3.3 READY before VALID handshake, OR
+
 			auto tuple = queue_R.front();
 			uint32_t value_RID = std::get<0>(tuple);
 			bus_data_t value_RDATA = std::get<1>(tuple);
 			bool value_RLAST = std::get<2>(tuple);
+
+			if (RVALID == 1)
+			{
+				log_action = CHANNEL_SENDC;
+			}
+			else
+			{
+				log_action = CHANNEL_SEND;
+			}
 
 			RVALID = 1;
 			RID = value_RID;
@@ -338,28 +368,39 @@ void AXI_SUBORDINATE::channel_R()
 			RLAST = value_RLAST;
 
 			queue_R.pop();
+			log_detail = "RID=" + std::to_string(value_RID)
+					+ ", RDATA=" + bus_data_to_hex_string(value_RDATA)
+					+ ", RLAST=" + std::to_string(value_RLAST);
 
-			log_action = CHANNEL_INITIATE;
-			log_detail = "RID=" + std::to_string(value_RID),
-						+ "RDATA=" + bus_data_to_hex_string(value_RDATA)
-						+ "RLAST=" = std::to_string(value_RLAST);
 		}
 	}
-	else
+	else // Q is empty
 	{
 		if (RREADY == 1)
 		{
+			// No more data to send.
+
 			RVALID = 0;
 			RID = 0;
-			RDATA = 0;
+			RDATA = BUS_DATA_ZERO;
 			RLAST = 0;
-			log_action = CHANNEL_COMPLETE;
+
+			log_action = CHANNEL_SENDQ;
+			log_detail = "";
 		}
-		else
+		else	// empty Q and not ready
 		{
-			log_action = CHANNEL_WAIT;
+			if (RVALID == 1)
+			{
+				log_action = CHANNEL_WAITR;
+			}
+			else
+			{
+				log_action = CHANNEL_IDLE;
+			}
 		}
 	}
+
 	channel_log(CHANNEL_NAME_R, log_action, log_detail);
 }
 

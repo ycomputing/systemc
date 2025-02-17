@@ -30,6 +30,7 @@ typedef sc_dt::sc_bigint<128> bus_data_t;
 
 #define CHANNEL_ACCEPT		"ACCEPT"
 #define CHANNEL_BUSY		"BUSY"
+#define CHANNEL_BUSYQ		"BUSYQ"
 #define CHANNEL_COMPLETE	"COMPLETE"
 #define CHANNEL_ENQUEUE		"ENQUEUE"
 #define CHANNEL_ERROR		"ERROR"
@@ -43,11 +44,12 @@ typedef sc_dt::sc_bigint<128> bus_data_t;
 #define CHANNEL_READY		"READY"
 #define CHANNEL_RECV		"RECV"
 #define CHANNEL_RESPONSE	"RESPONSE"
-#define CHANNEL_SEND		"SEND"
-#define CHANNEL_SENDING		"SENDING"
-#define CHANNEL_SENT		"SENT"
+#define CHANNEL_SEND		"SEND"	// send after idle
+#define CHANNEL_SENDC		"SENDC"	// send after send
+#define CHANNEL_SENDQ		"SENDQ"	// idle after send
 #define CHANNEL_UNKNOWN		"UNKNOWN"
-#define CHANNEL_WAIT		"WAIT"
+#define CHANNEL_WAITR		"WAITR"	// wait for READY
+#define CHANNEL_WAITV		"WAITV"	// wait for VALID
 #define CHANNEL_WRITE		"WRITE"
 
 // unit of latency is in clock cycles
@@ -74,6 +76,21 @@ typedef sc_dt::sc_bigint<128> bus_data_t;
 #define LATENCY_READY_AR	100
 #define LATENCY_READY_R		5
 */
+
+// AW tuple: (AWID, AWADDR, AWLEN)
+typedef std::tuple<uint32_t, uint64_t, uint8_t> tuple_AW_t;
+
+// W tuple: (WID, WDATA, WLAST)
+typedef std::tuple<uint32_t, bus_data_t, bool> tuple_W_t;
+
+// AR tuple: (ARID, ARADDR, ARLEN)
+typedef std::tuple<uint32_t, uint64_t, uint8_t> tuple_AR_t;
+
+// R tuple: <RID, RDATA, RLAST>
+typedef std::tuple<uint32_t, bus_data_t, bool> tuple_R_t;
+
+// progress tuple: <ADDR, ADDRLEN, count done already>
+typedef std::tuple<uint64_t, uint8_t, uint8_t> tuple_progress_t;
 
 // conversion utility functions
 

@@ -54,17 +54,17 @@ SC_MODULE(AXI_MANAGER)
 	std::queue<std::tuple<uint64_t, char, uint64_t, uint8_t, bus_data_t>> queue_access;
 
 	// queue AW tuple: (AWID, AWADDR, AWLEN)
-	std::queue<std::tuple<uint32_t, uint64_t, uint8_t>> queue_AW;
+	std::queue<tuple_AW_t> queue_AW;
 
 	// queue W tuple: (WID, WDATA, WLAST)
-	std::queue<std::tuple<uint32_t, bus_data_t, bool>> queue_W;
+	std::queue<tuple_W_t> queue_W;
 
 	// queue AR tuple: (ARID, ARADDR, ARLEN)
-	std::queue<std::tuple<uint32_t, uint64_t, uint8_t>> queue_AR;
+	std::queue<tuple_AR_t> queue_AR;
 
 	// pair<ARID, contents>
 	// contents tuple: (ARADDR, ARLEN, amount_sent_already)
-	std::unordered_map<uint32_t, std::tuple<uint64_t, uint8_t, uint8_t>> map_progress_R;
+	std::unordered_map<uint32_t, tuple_progress_t> map_progress_read;
 
 	// for latency countdown
 	int latency_B;
@@ -86,8 +86,15 @@ SC_MODULE(AXI_MANAGER)
 	void channel_AR();
 	void channel_R();
 
+	// AR tuple: (ARID, ARADDR, ARLEN)
+	std::string channel_AR_after_send(tuple_AR_t tuple_AR);
+
+	// R tuple: (RID, RDATA, RLAST)
+	std::string channel_R_after_recv(tuple_R_t tuple_R);
+
 	void channel_log(std::string channel, std::string action, std::string detail);
 	void channel_manager();
+	void channel_reader();
 
 	uint32_t generate_transaction_id();
 

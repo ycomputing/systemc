@@ -59,7 +59,7 @@ SC_MODULE(AXI_SUBORDINATE)
 	std::vector<std::tuple<uint32_t, uint64_t, uint8_t>> requests_AR;
 
 	// tuple<RID, RDATA, RLAST>
-	std::queue<std::tuple<uint32_t, bus_data_t, bool>> queue_R;
+	std::queue<tuple_R_t> queue_R;
 
 	// for latency cowntdown
 	int latency_AW;
