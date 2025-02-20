@@ -26,6 +26,15 @@ typedef sc_dt::sc_bigint<128> bus_data_t;
 #define CHANNEL_NAME_WRITER		"writer"
 #define CHANNEL_NAME_MANAGER	"manager"
 
+// channel id
+#define CHANNEL_X		0
+#define CHANNEL_AW		1
+#define CHANNEL_W		2
+#define CHANNEL_B		3
+#define CHANNEL_AR		4
+#define CHANNEL_R		5
+
+
 // name of channel states
 
 #define CHANNEL_ACCEPT		"ACCEPT"
