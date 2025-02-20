@@ -19,16 +19,16 @@ typedef struct struct_axi_trans
 	bus_data_t	data[AXI_TRANSACTION_LENGTH_MAX];
 	bool		is_write;
 
-	// The following function is required by 6.23.3 of IEEE std 1666-2011
-	friend std::ostream& operator<<(std::ostream& os, const struct_axi_trans& trans)
-	{
-		return os;
-	}
-
 } axi_trans_t;
 
+// The following function is required by 6.23.3 of IEEE std 1666-2011
+inline std::ostream& operator<<(std::ostream& os, const struct_axi_trans& trans)
+{
+	return os;
+}
 
-typedef std::tuple<axi_trans_t, int8_t> tuple_progress_t;
+
+typedef std::tuple<axi_trans_t, uint8_t> tuple_progress_t;
 
 typedef struct
 {
@@ -45,10 +45,10 @@ SC_MODULE(AXI_BUS)
 	sc_in<bool>	ACLK;
 	sc_in<bool>	ARESETn;
 
-	sc_fifo_in<axi_trans_t> fifo_in_M;
-	sc_fifo_out<axi_trans_t> fifo_out_M;
-	sc_fifo_in<axi_trans_t> fifo_in_S;
-	sc_fifo_out<axi_trans_t> fifo_out_S;
+	sc_fifo_in<axi_trans_t> request_M;
+	sc_fifo_out<axi_trans_t> response_M;
+	sc_fifo_in<axi_trans_t> response_S;
+	sc_fifo_out<axi_trans_t> request_S;
 
 	// Chapter A2.1.1 write request channel
 	sc_signal<bool>			AWVALID;
@@ -95,7 +95,7 @@ SC_MODULE(AXI_BUS)
 	std::queue<axi_bus_info_t> q_recv_AR;
 	std::queue<axi_bus_info_t> q_recv_R;
 
-	std::unordered_map<uint8_t, tuple_progress_t> map_progress;
+	std::unordered_map<uint32_t, tuple_progress_t> map_progress;
 
 	SC_CTOR(AXI_BUS)
 	{
@@ -107,12 +107,12 @@ SC_MODULE(AXI_BUS)
 	void on_clock();
 	void on_reset();
 
-
 	axi_bus_info_t create_null_info();
-	void send_info(int channel, axi_bus_info_t info);
+	void send_info(int channel, axi_bus_info_t& info);
 	axi_bus_info_t recv_info(int channel);
 
 	static std::string get_channel_name(int channel);
+	
 	bool is_ready(int channel);
 	bool is_valid(int channel);
 	void set_ready(int channel, bool value);
@@ -121,25 +121,29 @@ SC_MODULE(AXI_BUS)
 	void channel_transaction();
 	void fifo_transaction();
 
-	static std::string transaction_to_string(axi_trans_t trans);
+	static std::string transaction_to_string(const axi_trans_t& trans);
+	static std::string bus_info_to_string(const axi_bus_info_t& info);
+	std::string progress_to_string(const tuple_progress_t& progress);
 
-	void fifo_transaction_in_M();
-	void fifo_transaction_in_S();
-	void fifo_transaction_out_M();
-	void fifo_transaction_out_S();
-	void fifo_transaction_out_q(sc_fifo_out<axi_trans_t> fifo_out, std::queue<axi_bus_info_t> q);
+	void transaction_request_M();
+	void transaction_response_S();
+	void transaction_response_M();
+	void transaction_request_S();
+	bool transaction_send_q(sc_fifo_out<axi_trans_t>& fifo_out, std::queue<axi_bus_info_t>& q);
 
-	bool progress_create(std::queue<axi_bus_info_t> q, bool is_write);
-	bool progress_delete(std::queue<axi_bus_info_t> q);
-	bool progress_update(std::queue<axi_bus_info_t> q);
+	bool progress_create(axi_bus_info_t& info, bool is_write);
+	void progress_delete(axi_bus_info_t& info);
+	bool progress_update(std::queue<axi_bus_info_t>& q);
 
-	void channel_sender(int channel, std::queue<axi_bus_info_t> q);
-	void channel_receiver(int channel, std::queue<axi_bus_info_t> q);
+	void channel_sender(int channel, std::queue<axi_bus_info_t>& q);
+	void channel_receiver(int channel, std::queue<axi_bus_info_t>& q);
 
 	void log(int channel, std::string action, std::string detail);
+	static void log(std::string source, std::string action, std::string detail);
 
 	uint32_t generate_transaction_id();
 
+	void progress_dump();
 };
 
 #endif

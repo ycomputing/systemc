@@ -35,15 +35,11 @@ void AXI_SUBORDINATE::on_reset()
 	has_pending_response = false;
 }
 
-void AXI_SUBORDINATE::fifo_log(std::string channel, std::string action, std::string detail)
-{
-	std::string out;
-	out = sc_time_stamp().to_string() + ":SUBORDINATE:" + channel + ":" + action + ":" + detail;
-	std::cout << out << std::endl;
-}
-
 void AXI_SUBORDINATE::fifo_manager()
 {
+	std::string log_action;
+	std::string log_detail;
+
 	bool is_accepted;
 	axi_trans_t trans;
 
@@ -53,11 +49,13 @@ void AXI_SUBORDINATE::fifo_manager()
 		if (is_accepted)
 		{
 			has_pending_response = false;
+			log(__FUNCTION__, "SENT_PENDING", AXI_BUS::transaction_to_string(trans_pending));
 		}
 		else
 		{
 			// still pending. do not receive incoming requests
 			// try to send the response again on next clock.
+			log(__FUNCTION__, "STILL_PENDING", AXI_BUS::transaction_to_string(trans_pending));
 			return;
 		}
 	}
@@ -67,8 +65,11 @@ void AXI_SUBORDINATE::fifo_manager()
 	if (is_accepted == false)
 	{
 		// No request now
+		log(__FUNCTION__, "NO_REQUEST", "");
 		return;
 	}
+
+	log(__FUNCTION__, "GOT_REQUEST", AXI_BUS::transaction_to_string(trans));
 
 	uint64_t amount_addr_inc = DATA_WIDTH / 8;
 	for (int i = 0; i < trans.length; i ++)
@@ -90,15 +91,21 @@ void AXI_SUBORDINATE::fifo_manager()
 			{
 				SC_REPORT_FATAL("Address out of range", AXI_BUS::transaction_to_string(trans).c_str());
 			}
-
-			is_accepted = response.nb_write(trans);
-			if (is_accepted == false)
-			{
-				has_pending_response = true;
-				trans_pending = trans;
-			}
 		}
 	}
+
+	is_accepted = response.nb_write(trans);
+	if (is_accepted == false)
+	{
+		log(__FUNCTION__, "START_PENDING", AXI_BUS::transaction_to_string(trans));
+		has_pending_response = true;
+		trans_pending = trans;
+	}
+	else
+	{
+		log(__FUNCTION__, "SENT_RESPONSE", AXI_BUS::transaction_to_string(trans));
+	}
+
 }
 
 void AXI_SUBORDINATE::read_memory_csv()
@@ -155,3 +162,8 @@ void AXI_SUBORDINATE::write_memory_csv(const char *filename)
 	}
 }
 
+void AXI_SUBORDINATE::log(std::string source, std::string action, std::string detail)
+{
+	std::string log_source = "SUBORDINATE:" + source;
+	AXI_BUS::log(log_source, action, detail);
+}

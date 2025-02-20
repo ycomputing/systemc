@@ -34,9 +34,9 @@ SC_MODULE(AXI_SUBORDINATE)
 	void on_clock();
 	void on_reset();
 
-	void fifo_log(std::string channel, std::string action, std::string detail);
 	void fifo_manager();
 
 	void read_memory_csv();
 	void write_memory_csv(const char* filename);
+	void log(std::string source, std::string action, std::string detail);
 };

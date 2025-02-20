@@ -34,7 +34,7 @@ SC_MODULE(AXI_MANAGER)
 	void on_clock();
 	void on_reset();
 
-	void fifo_log(std::string fifo, std::string action, std::string detail);
+	void log(std::string source, std::string action, std::string detail);
 	void fifo_manager();
 
 	uint32_t generate_transaction_id();

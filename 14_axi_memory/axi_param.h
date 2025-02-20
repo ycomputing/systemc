@@ -6,7 +6,7 @@
 
 
 // Maximum number of data with one address
-#define AXI_TRANSACTION_LENGTH_MAX	4096
+#define AXI_TRANSACTION_LENGTH_MAX	10
 
 #define ID_R_WIDTH	32
 #define ADDR_WIDTH	64

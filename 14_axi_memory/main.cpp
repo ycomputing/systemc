@@ -6,9 +6,9 @@ using namespace sc_dt;
 
 #define SIMULATION_TIME	100000
 
+#include "axi_bus.h"
 #include "axi_manager.h"
 #include "axi_subordinate.h"
-#include "axi_bus.h"
 #include "resetter.h"
 
 int sc_main(int, char*[])
@@ -34,10 +34,10 @@ int sc_main(int, char*[])
 
 	bus.ACLK(ACLK);
 	bus.ARESETn(ARESETn);
-	bus.fifo_in_M(request_M);
-	bus.fifo_out_M(response_M);
-	bus.fifo_in_S(response_S);
-	bus.fifo_out_S(request_S);
+	bus.request_M(request_M);
+	bus.response_M(response_M);
+	bus.response_S(response_S);
+	bus.request_S(request_S);
 
 	m.ACLK(ACLK);
 	m.ARESETn(ARESETn);

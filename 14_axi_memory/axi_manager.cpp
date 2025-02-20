@@ -34,11 +34,10 @@ void AXI_MANAGER::on_reset()
 
 }
 
-void AXI_MANAGER::fifo_log(std::string channel, std::string action, std::string detail)
+void AXI_MANAGER::log(std::string source, std::string action, std::string detail)
 {
-	std::string out;
-	out = sc_time_stamp().to_string() + ":SUBORDINATE:" + channel + ":" + action + ":" + detail;
-	std::cout << out << std::endl;
+	std::string log_source = "MANAGER:" + source;
+	AXI_BUS::log(log_source, action, detail);
 }
 
 void AXI_MANAGER::fifo_manager()
@@ -46,21 +45,40 @@ void AXI_MANAGER::fifo_manager()
 	std::string log_action = CHANNEL_UNKNOWN;
 	std::string log_detail = "";
 	bool is_accepted;
-	
+	axi_trans_t trans;
+
+	// check response first
+	is_accepted = response.nb_read(trans);
+	if (is_accepted)
+	{
+		if (trans.is_write == false)
+		{
+			uint64_t amount_addr_inc = DATA_WIDTH / 8;
+			// update memory
+			for (int i = 0; i < trans.length; i ++)
+			{
+				uint64_t addr = trans.addr + amount_addr_inc * i;
+				map_memory[addr] = trans.data[i];
+			}
+		}
+		log_detail = AXI_BUS::transaction_to_string(trans);
+		log(__FUNCTION__, "GOT RESPONSE", log_detail);
+	}
+
 	// Are there requests to send?
 
 	if (queue_access.empty())
 	{
 		// No job to do.
 		log_action = "empty q";
-		fifo_log(__FUNCTION__, log_action, log_detail);
+		log(__FUNCTION__, log_action, log_detail);
 		return;
 	}
 
 	// queue access tuple: (timestamp, rw, address, length, data)
 	auto tuple = queue_access.front();
 	uint64_t stamp_q = std::get<0>(tuple);
-	axi_trans_t trans = std::get<1>(tuple);
+	trans = std::get<1>(tuple);
 
 	// XXX Warning:
 	// sc_time_stamp().value() depends on the time resolution of the simulation.
@@ -76,7 +94,7 @@ void AXI_MANAGER::fifo_manager()
 		log_action = CHANNEL_HOLD;
 		log_detail = "scheduled=" + std::to_string(stamp_q)
 				+ ",now=" + std::to_string(stamp_now);
-		fifo_log(__FUNCTION__, log_action, log_detail);
+		log(__FUNCTION__, log_action, log_detail);
 		return;
 	}
 
@@ -84,18 +102,9 @@ void AXI_MANAGER::fifo_manager()
 	if (is_accepted)
 	{
 		log_detail = AXI_BUS::transaction_to_string(trans);
-		fifo_log(__FUNCTION__, "request", log_detail);
+		log(__FUNCTION__, "request", log_detail);
 		queue_access.pop();
 	}
-
-	// check response
-	is_accepted = response.nb_read(trans);
-	if (is_accepted)
-	{
-		log_detail = AXI_BUS::transaction_to_string(trans);
-		fifo_log(__FUNCTION__, "response", log_detail);
-	}
-
 }
 
 void AXI_MANAGER::read_access_csv()
@@ -118,7 +127,7 @@ void AXI_MANAGER::read_access_csv()
 	int count_data = 0;
 	std::tuple<uint64_t, axi_trans_t> row;
 
-	int line_number = 0;
+	int line_number = 1;
 	std::string line;
 	while (std::getline(f, line))
 	{
@@ -171,7 +180,7 @@ void AXI_MANAGER::read_access_csv()
 			// This must not happen
 			SC_REPORT_FATAL("AXI_MANAGER", "Invalid access type. It must be R or W");
 		}
-	
+
 		if(is_expecting_new)
 		{
 			trans_current.addr = address;
@@ -193,6 +202,14 @@ void AXI_MANAGER::read_access_csv()
 					<< ", at line (" << line_number << "): " << line << std::endl;
 				SC_REPORT_FATAL("AXI_MANAGER", "Invalid access length");
 			}
+		}
+
+		if (length >= AXI_TRANSACTION_LENGTH_MAX)
+		{
+			std::cerr << "Error: too long access length " << std::to_string(length)
+				<< " (max=" << AXI_TRANSACTION_LENGTH_MAX << ") in " << filename_access
+				<< ", at line (" << line_number << "): " << line << std::endl;
+			SC_REPORT_FATAL("AXI_MANAGER", "Too long access length");
 		}
 
 		if (count_data == length)
