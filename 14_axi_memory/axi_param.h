@@ -4,6 +4,10 @@
 // For detailed explanation, see AMBA AXI protocol spec
 // https://developer.arm.com/documentation/ihi0022/latest/
 
+
+// Maximum number of data with one address
+#define AXI_TRANSACTION_LENGTH_MAX	4096
+
 #define ID_R_WIDTH	32
 #define ADDR_WIDTH	64
 #define DATA_WIDTH	128
@@ -97,9 +101,6 @@ typedef std::tuple<uint32_t, uint64_t, uint8_t> tuple_AR_t;
 
 // R tuple: <RID, RDATA, RLAST>
 typedef std::tuple<uint32_t, bus_data_t, bool> tuple_R_t;
-
-// progress tuple: <ADDR, ADDRLEN, count done already>
-typedef std::tuple<uint64_t, uint8_t, uint8_t> tuple_progress_t;
 
 // conversion utility functions
 

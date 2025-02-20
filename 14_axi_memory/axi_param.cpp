@@ -35,4 +35,3 @@ std::string bus_data_to_hex_string(bus_data_t data)
 	ss << std::setfill('0') << std::setw(DATA_WIDTH / 4) << data.to_string(sc_dt::SC_HEX);
 	return ss.str();
 }
-

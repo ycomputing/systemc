@@ -126,13 +126,13 @@ void AXI_BUS::set_ready(int channel, bool value)
 	}
 }
 
-void AXI_BUS::send_info(int channel, axi_info_t info)
+void AXI_BUS::send_info(int channel, axi_bus_info_t info)
 {
 	switch(channel)
 	{
 		case CHANNEL_AW:	AWID = info.id;
 							AWADDR = info.addr;
-							AWLEN = info.addr_len;
+							AWLEN = info.len;
 							break;
 		case CHANNEL_W:		WID = info.id;
 							WDATA = info.data;
@@ -142,7 +142,7 @@ void AXI_BUS::send_info(int channel, axi_info_t info)
 							break;
 		case CHANNEL_AR:	ARID = info.id;
 							ARADDR = info.addr;
-							ARLEN = info.addr_len;
+							ARLEN = info.len;
 							break;
 		case CHANNEL_R:		RID = info.id;
 							RDATA = info.data;
@@ -154,21 +154,21 @@ void AXI_BUS::send_info(int channel, axi_info_t info)
 	}
 }
 
-axi_info_t AXI_BUS::create_null_info()
+axi_bus_info_t AXI_BUS::create_null_info()
 {
-	axi_info_t info;
+	axi_bus_info_t info;
 
 	info.id = CHANNEL_X;
 	info.addr = 0;
-	info.addr_len = 0;
+	info.len = 0;
 	info.data = 0;
 	info.is_last = false;
 	return info;
 }
 
-axi_info_t AXI_BUS::recv_info(int channel)
+axi_bus_info_t AXI_BUS::recv_info(int channel)
 {
-	axi_info_t info;
+	axi_bus_info_t info;
 
 	info.channel = CHANNEL_X;
 	info.id = 0;
@@ -177,7 +177,7 @@ axi_info_t AXI_BUS::recv_info(int channel)
 	{
 		case CHANNEL_AW:	info.id = AWID;
 							info.addr = AWADDR;
-							info.addr_len = AWLEN;
+							info.len = AWLEN;
 							break;
 		case CHANNEL_W:		info.id = WID;
 							info.data = WDATA = info.data;
@@ -186,8 +186,8 @@ axi_info_t AXI_BUS::recv_info(int channel)
 		case CHANNEL_B:		info.id = BID;
 							break;
 		case CHANNEL_AR:	info.id = ARID;
-							info.id = ARADDR;
-							info.id = ARLEN;
+							info.addr = ARADDR;
+							info.len = ARLEN;
 							break;
 		case CHANNEL_R:		info.id = RID;
 							info.data = RDATA;
@@ -199,7 +199,7 @@ axi_info_t AXI_BUS::recv_info(int channel)
 	return (info);
 }
 
-void AXI_BUS::channel_receiver(int channel, std::queue<axi_info_t>q)
+void AXI_BUS::channel_receiver(int channel, std::queue<axi_bus_info_t>q)
 {
 	std::string log_action = CHANNEL_UNKNOWN;
 	std::string log_detail = "";
@@ -210,13 +210,13 @@ void AXI_BUS::channel_receiver(int channel, std::queue<axi_info_t>q)
 	}
 	else if (is_valid(channel))	// ready and valid
 	{
-		axi_info_t info = recv_info(channel);
+		axi_bus_info_t info = recv_info(channel);
 		//callback(this, channel, BUS_EVENT_)
 
 	}
 }
 
-void AXI_BUS::channel_sender(int channel, std::queue<axi_info_t> q)
+void AXI_BUS::channel_sender(int channel, std::queue<axi_bus_info_t> q)
 {
 	std::string log_action = CHANNEL_UNKNOWN;
 	std::string log_detail = "";
@@ -231,7 +231,7 @@ void AXI_BUS::channel_sender(int channel, std::queue<axi_info_t> q)
 		}
 		else
 		{
-			axi_info_t info = q.front();
+			axi_bus_info_t info = q.front();
 
 			if (is_valid(channel))
 			{
@@ -325,95 +325,248 @@ void AXI_BUS::fifo_transaction()
 
 void AXI_BUS::fifo_transaction_in_M()
 {
-	axi_info_t info;
-	bool has_data;
+	axi_trans_t trans;
+	bool has_trans;
 
-	has_data = fifo_in_M.nb_read(info);
-	if (!has_data)
+	has_trans = fifo_in_M.nb_read(trans);
+	if (!has_trans)
 	{
 		return;
 	}
 
-	if (info.is_write)
+	uint32_t id = generate_transaction_id();
+
+	axi_bus_info_t info = create_null_info();
+	info.id = id;
+	info.addr = trans.addr;
+	info.len = trans.length - 1;
+
+	if (trans.is_write)
 	{
 		q_send_AW.push(info);
-		q_send_W.push(info);
+
+		info.is_last = false;
+		for (int i = 0; i < trans.length; i++)
+		{
+			if (i == info.len)
+			{
+				info.is_last = true;
+			}
+			info.data = trans.data[i];
+			q_send_W.push(info);
+		}
 	}
 	else
 	{
+		tuple_progress_t progress;
+		progress = std::make_tuple(trans, 0);
+		map_progress[id] = progress;
 		q_send_AR.push(info);
 	}
 }
 
 void AXI_BUS::fifo_transaction_in_S()
 {
-	axi_info_t info;
-	bool has_data;
+	axi_trans_t trans;
+	bool has_trans;
 
-	has_data = fifo_in_S.nb_read(info);
-	if (has_data)
+	has_trans = fifo_in_S.nb_read(trans);
+	if (!has_trans)
 	{
 		return;
 	}
 
-	if (info.is_write)
+	uint32_t id;
+	tuple_progress_t progress;
+	axi_trans_t trans_in_progress;
+	bool found = false;
+
+	for (auto iter: map_progress)
+	{
+		id = iter.first;
+		progress = iter.second;
+		trans_in_progress = std::get<0>(progress);
+
+		if (trans_in_progress.addr != trans.addr)
+		{
+			continue;
+		}
+
+		found = true;
+		break;
+	}
+
+	if (found == false)
+	{
+		SC_REPORT_FATAL("Response, not in progress", transaction_to_string(trans).c_str());
+		return;
+	}
+
+	axi_bus_info_t info = create_null_info();
+	info.id = id;
+	info.addr = trans.addr;
+	info.len = trans.length - 1;
+	if (trans.is_write)
 	{
 		q_send_B.push(info);
 	}
 	else
 	{
-		q_send_R.push(info);
+		info.is_last = false;
+		for (int i = 0; i < trans.length; i++)
+		{
+			if (i == info.len)
+			{
+				info.is_last = true;
+			}
+			info.data = trans.data[i];
+			q_send_R.push(info);
+		}
+	}
+}
+
+bool AXI_BUS::progress_create(std::queue<axi_bus_info_t> q, bool is_write)
+{
+	axi_bus_info_t info;
+	axi_trans_t trans;
+
+	if (q.empty())
+	{
+		return false;
+	}
+
+	info = q.front();
+	auto iter = map_progress.find(info.id);
+	if (iter != map_progress.end())
+	{
+		// Duplicate ID
+		SC_REPORT_FATAL("DUPLICATE ID", "q");
+		return false;
+	}
+
+	trans.addr = info.addr;
+	trans.length = info.len + 1;
+	trans.is_write = is_write;
+	map_progress[info.id] = std::make_tuple(trans, 0);
+	return true;
+}
+
+bool AXI_BUS::progress_delete(std::queue<axi_bus_info_t> q)
+{
+	// No function
+	return true;
+}
+
+
+// returns true when 100% progress is made.
+// you have to pop the q manually when this returns true.
+
+bool AXI_BUS::progress_update(std::queue<axi_bus_info_t> q)
+{
+	axi_bus_info_t info;
+	
+	if (q.empty())
+	{
+		return false;
+	}
+
+	info = q_recv_R.front();
+	auto iter = map_progress.find(info.id);
+	if (iter == map_progress.end())
+	{
+		// Nothing in progress for that id
+		SC_REPORT_FATAL("NOID", "q_recv_R");
+	}
+	auto progress = iter->second;
+	auto trans_in_progress = std::get<0>(progress);
+	int8_t count_done = std::get<1>(progress);
+	if (count_done >= trans_in_progress.length)
+	{
+		// We got more data than required length
+		SC_REPORT_FATAL("TOO MUCH DATA", "q_recv_R");
+	}
+	trans_in_progress.data[count_done] = info.data;
+
+	if (info.is_last)
+	{
+		if (count_done != trans_in_progress.length - 1)
+		{
+			// We got last data when there must be more
+			SC_REPORT_FATAL("TOO FEW DATA", "q_recv_R");
+		}
+		// progress is 100%.
+		// do not pop, do not erase progress yet.
+		return true;
+
+	}
+	else	// not the last data
+	{
+		std::get<1>(iter->second) = count_done + 1;
+		q_recv_R.pop();
+	}
+
+	return false;
+}
+
+void AXI_BUS::fifo_transaction_out_q(sc_fifo_out<axi_trans_t> fifo_out, std::queue<axi_bus_info_t> q)
+{
+	axi_bus_info_t info;
+	bool is_accepted;
+
+	if (q.empty())
+	{
+		return;
+	}
+
+	info = q.front();
+	auto iter = map_progress.find(info.id);
+	if (iter == map_progress.end())
+	{
+		// Nothing in progress for that id
+		SC_REPORT_FATAL("NOID", "q_recv_X");
+	}
+	auto progress = iter->second;
+	auto trans_in_progress = std::get<0>(progress);
+	is_accepted = fifo_out.nb_write(trans_in_progress);
+	if (is_accepted)
+	{
+		q.pop();
+		map_progress.erase(iter);
+	}
+	else
+	{
+		// Fifo is full, try again in the future.
 	}
 }
 
 void AXI_BUS::fifo_transaction_out_M()
 {
-	axi_info_t info;
+	// write transaction
+	fifo_transaction_out_q(fifo_out_M, q_recv_B);
 
-	if (!q_recv_B.empty())
+	// read transaction
+	bool is_completed = progress_update(q_recv_R);
+	if (is_completed)
 	{
-		info = q_recv_B.front();
-		//TODO: fill address
-		fifo_out_M.nb_write(info);
-		q_recv_B.pop();
-	}
-
-	if (!q_recv_R.empty())
-	{
-		info = q_recv_R.front();
-		//TODO: fill address
-		fifo_out_M.nb_write(info);
-		q_recv_R.pop();
+		fifo_transaction_out_q(fifo_out_M, q_recv_R);
 	}
 }
 
 void AXI_BUS::fifo_transaction_out_S()
 {
-	axi_info_t info;
-
-	if (!q_recv_AW.empty())
-	{
-		info = q_recv_AW.front();
-		//TODO: fill address
-		fifo_out_S.nb_write(info);
-		q_recv_AW.pop();
-	}
-
 	if (!q_recv_W.empty())
 	{
-		info = q_recv_W.front();
-		//TODO: fill address
-		fifo_out_S.nb_write(info);
+		progress_create(q_recv_AW, true);
 		q_recv_W.pop();
 	}
 
-	if (!q_recv_AR.empty())
+	bool is_completed = progress_update(q_recv_W);
+	if (is_completed)
 	{
-		info = q_recv_AR.front();
-		//TODO: fill address
-		fifo_out_S.nb_write(info);
-		q_recv_AR.pop();
+		fifo_transaction_out_q(fifo_out_S, q_recv_W);
 	}
+
+	fifo_transaction_out_q(fifo_out_S, q_recv_AR);
 }
 
 uint32_t AXI_BUS::generate_transaction_id()
@@ -423,13 +576,25 @@ uint32_t AXI_BUS::generate_transaction_id()
 	return id;
 }
 
-/*
-int AXI_BUS::callback_default(AXI_BUS* bus, int channel, int event, axi_info_t info)
+std::string AXI_BUS::transaction_to_string(axi_trans_t trans)
 {
-	std::string log_detail = "";
-	log_detail = "CALLBACK: channel=" + std::to_string(channel)
-			+ ", event=" + std::to_string(event)
-			+ "";
-	std::cout << log_detail << std::endl;
+	std::string s;
+	bool is_first = true;
+	s = "addr=" + address_to_hex_string(trans.addr)
+		+ ", length=" + std::to_string(trans.length)
+		+ ", wr=" + std::to_string(trans.is_write)
+		+ ", data=";
+	for (int i = 0; i < trans.length; i++)
+	{
+		if (is_first == false)
+		{
+			s += ",";
+		}
+		s += bus_data_to_hex_string(trans.data[i]);
+		if (is_first)
+		{
+			is_first = false;
+		}
+	}
+	return s;
 }
-	*/

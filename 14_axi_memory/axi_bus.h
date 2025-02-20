@@ -1,4 +1,8 @@
+#ifndef __AXI_BUS_H__
+#define __AXI_BUS_H__
+
 #include <systemc>
+#include <iostream>
 #include <fstream>
 #include <queue>
 #include <sstream>
@@ -8,30 +12,43 @@
 
 #include "axi_param.h"
 
+typedef struct struct_axi_trans
+{
+	uint64_t	addr;
+	uint8_t		length;
+	bus_data_t	data[AXI_TRANSACTION_LENGTH_MAX];
+	bool		is_write;
+
+	// The following function is required by 6.23.3 of IEEE std 1666-2011
+	friend std::ostream& operator<<(std::ostream& os, const struct_axi_trans& trans)
+	{
+		return os;
+	}
+
+} axi_trans_t;
+
+
+typedef std::tuple<axi_trans_t, int8_t> tuple_progress_t;
+
 typedef struct
 {
 	int			channel;
 	uint32_t	id;
 	uint64_t	addr;
-	uint8_t		addr_len;
+	uint8_t		len; // length - 1
 	bus_data_t	data;
 	bool		is_last;
-
-	// for fifo
-	bool		is_write;
-} axi_info_t;
-
-//typedef int (*axi_callback_t) (AXI_BUS* bus, int channel, int when, axi_info_t info);
+} axi_bus_info_t;
 
 SC_MODULE(AXI_BUS)
 {
 	sc_in<bool>	ACLK;
 	sc_in<bool>	ARESETn;
 
-	sc_fifo_in<axi_info_t> fifo_in_M;
-	sc_fifo_out<axi_info_t> fifo_out_M;
-	sc_fifo_in<axi_info_t> fifo_in_S;
-	sc_fifo_out<axi_info_t> fifo_out_S;
+	sc_fifo_in<axi_trans_t> fifo_in_M;
+	sc_fifo_out<axi_trans_t> fifo_out_M;
+	sc_fifo_in<axi_trans_t> fifo_in_S;
+	sc_fifo_out<axi_trans_t> fifo_out_S;
 
 	// Chapter A2.1.1 write request channel
 	sc_signal<bool>			AWVALID;
@@ -66,35 +83,34 @@ SC_MODULE(AXI_BUS)
 	sc_signal<bus_data_t>	RDATA;
 	sc_signal<bool>			RLAST;
 
-	std::queue<axi_info_t> q_send_AW;
-	std::queue<axi_info_t> q_send_W;
-	std::queue<axi_info_t> q_send_B;
-	std::queue<axi_info_t> q_send_AR;
-	std::queue<axi_info_t> q_send_R;
+	std::queue<axi_bus_info_t> q_send_AW;
+	std::queue<axi_bus_info_t> q_send_W;
+	std::queue<axi_bus_info_t> q_send_B;
+	std::queue<axi_bus_info_t> q_send_AR;
+	std::queue<axi_bus_info_t> q_send_R;
 
-	std::queue<axi_info_t> q_recv_AW;
-	std::queue<axi_info_t> q_recv_W;
-	std::queue<axi_info_t> q_recv_B;
-	std::queue<axi_info_t> q_recv_AR;
-	std::queue<axi_info_t> q_recv_R;
+	std::queue<axi_bus_info_t> q_recv_AW;
+	std::queue<axi_bus_info_t> q_recv_W;
+	std::queue<axi_bus_info_t> q_recv_B;
+	std::queue<axi_bus_info_t> q_recv_AR;
+	std::queue<axi_bus_info_t> q_recv_R;
+
+	std::unordered_map<uint8_t, tuple_progress_t> map_progress;
 
 	SC_CTOR(AXI_BUS)
 	{
 		SC_CTHREAD(thread, ACLK);
 		async_reset_signal_is(ARESETn, false);
-//		callback = callback_default;
 	}
 
 	void thread();
 	void on_clock();
 	void on_reset();
 
-//	axi_callback_t callback;
-//	int callback_default (AXI_BUS* bus, int channel, int event, axi_info_t info);
 
-	axi_info_t create_null_info();
-	void send_info(int channel, axi_info_t info);
-	axi_info_t recv_info(int channel);
+	axi_bus_info_t create_null_info();
+	void send_info(int channel, axi_bus_info_t info);
+	axi_bus_info_t recv_info(int channel);
 
 	static std::string get_channel_name(int channel);
 	bool is_ready(int channel);
@@ -105,16 +121,25 @@ SC_MODULE(AXI_BUS)
 	void channel_transaction();
 	void fifo_transaction();
 
+	static std::string transaction_to_string(axi_trans_t trans);
+
 	void fifo_transaction_in_M();
 	void fifo_transaction_in_S();
 	void fifo_transaction_out_M();
 	void fifo_transaction_out_S();
+	void fifo_transaction_out_q(sc_fifo_out<axi_trans_t> fifo_out, std::queue<axi_bus_info_t> q);
 
-	void channel_sender(int channel, std::queue<axi_info_t> q);
-	void channel_receiver(int channel, std::queue<axi_info_t> q);
+	bool progress_create(std::queue<axi_bus_info_t> q, bool is_write);
+	bool progress_delete(std::queue<axi_bus_info_t> q);
+	bool progress_update(std::queue<axi_bus_info_t> q);
+
+	void channel_sender(int channel, std::queue<axi_bus_info_t> q);
+	void channel_receiver(int channel, std::queue<axi_bus_info_t> q);
 
 	void log(int channel, std::string action, std::string detail);
 
 	uint32_t generate_transaction_id();
 
 };
+
+#endif

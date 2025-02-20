@@ -8,6 +8,7 @@ using namespace sc_dt;
 
 #include "axi_manager.h"
 #include "axi_subordinate.h"
+#include "axi_bus.h"
 #include "resetter.h"
 
 int sc_main(int, char*[])
@@ -15,124 +16,65 @@ int sc_main(int, char*[])
 	sc_clock ACLK("ACLK", 1, SC_NS);
 	sc_signal<bool> ARESETn;
 	
-	// Chapter A2.1.1 write request channel
-	sc_signal<bool>			AWVALID;
-	sc_signal<bool>			AWREADY;
-	sc_signal<uint32_t>		AWID;
-	sc_signal<uint64_t>		AWADDR;
-	sc_signal<uint8_t>		AWLEN;
+	sc_fifo<axi_trans_t> request_M;
+	sc_fifo<axi_trans_t> request_S;
+	sc_fifo<axi_trans_t> response_M;
+	sc_fifo<axi_trans_t> response_S;
 
-	// Chapter A2.1.2 write data channel
-	sc_signal<bool>			WVALID;
-	sc_signal<bool>			WREADY;
-	sc_signal<uint32_t>		WID;
-	sc_signal<bus_data_t>	WDATA;
-	sc_signal<bool>			WLAST;
-
-	// Chapter A2.1.3 write response channel
-	sc_signal<bool>			BVALID;
-	sc_signal<bool>			BREADY;
-	sc_signal<uint32_t>		BID;
-
-	// Chapter A2.2.1 read request channel
-	sc_signal<bool>			ARVALID;
-	sc_signal<bool>			ARREADY;
-	sc_signal<uint32_t>		ARID;
-	sc_signal<uint64_t>		ARADDR;
-	sc_signal<uint8_t>		ARLEN;
-
-	// Chapter A2.2.2 read data channel
-	sc_signal<bool>			RVALID;
-	sc_signal<bool>			RREADY;
-	sc_signal<uint32_t>		RID;
-	sc_signal<bus_data_t>	RDATA;
-	sc_signal<bool>			RLAST;
-
-	RESETTER r("r");
-	r.ARESETn(ARESETn);
-
+	AXI_BUS bus("bus");
 	AXI_MANAGER m("m");
 	AXI_SUBORDINATE s("s");
+	RESETTER r("r");
+
+	axi_trans_t trans;
+	trans.addr = 0;
+	
+	
+	r.ARESETn(ARESETn);
+
+	bus.ACLK(ACLK);
+	bus.ARESETn(ARESETn);
+	bus.fifo_in_M(request_M);
+	bus.fifo_out_M(response_M);
+	bus.fifo_in_S(response_S);
+	bus.fifo_out_S(request_S);
 
 	m.ACLK(ACLK);
 	m.ARESETn(ARESETn);
-	m.AWVALID(AWVALID);
-	m.AWREADY(AWREADY);
-	m.AWID(AWID);
-	m.AWADDR(AWADDR);
-	m.AWLEN(AWLEN);
-	m.WVALID(WVALID);
-	m.WREADY(WREADY);
-	m.WID(WID);
-	m.WDATA(WDATA);
-	m.WLAST(WLAST);
-	m.BVALID(BVALID);
-	m.BREADY(BREADY);
-	m.BID(BID);
-	m.ARVALID(ARVALID);
-	m.ARREADY(ARREADY);
-	m.ARID(ARID);
-	m.ARADDR(ARADDR);
-	m.ARLEN(ARLEN);
-	m.RVALID(RVALID);
-	m.RREADY(RREADY);
-	m.RID(RID);
-	m.RDATA(RDATA);
-	m.RLAST(RLAST);
+	m.request(request_M);
+	m.response(response_M);
 
 	s.ACLK(ACLK);
 	s.ARESETn(ARESETn);
-	s.AWVALID(AWVALID);
-	s.AWREADY(AWREADY);
-	s.AWID(AWID);
-	s.AWADDR(AWADDR);
-	s.AWLEN(AWLEN);
-	s.WVALID(WVALID);
-	s.WREADY(WREADY);
-	s.WID(WID);
-	s.WDATA(WDATA);
-	s.WLAST(WLAST);
-	s.BVALID(BVALID);
-	s.BREADY(BREADY);
-	s.BID(BID);
-	s.ARVALID(ARVALID);
-	s.ARREADY(ARREADY);
-	s.ARID(ARID);
-	s.ARADDR(ARADDR);
-	s.ARLEN(ARLEN);
-	s.RVALID(RVALID);
-	s.RID(RID);
-	s.RDATA(RDATA);
-	s.RREADY(RREADY);
-	s.RLAST(RLAST);
-
+	s.request(request_S);
+	s.response(response_S);
 
 	sc_trace_file* f = sc_create_vcd_trace_file("trace");
 	sc_trace(f, ARESETn, "ARESETn");
 	sc_trace(f, ACLK, "ACLK");
-	sc_trace(f, AWVALID, "AWVALID");
-	sc_trace(f, AWREADY, "AWREADY");
-	sc_trace(f, AWID, "AWID");
-	sc_trace(f, AWADDR, "AWADDR");
-	sc_trace(f, AWLEN, "AWLEN");
-	sc_trace(f, WVALID, "WVALID");
-	sc_trace(f, WREADY, "WREADY");
-	sc_trace(f, WID, "WID");
-	sc_trace(f, WDATA, "WDATA");
-	sc_trace(f, WLAST, "WLAST");
-	sc_trace(f, BVALID, "BVALID");
-	sc_trace(f, BREADY, "BREADY");
-	sc_trace(f, BID, "BID");
-	sc_trace(f, ARVALID, "ARVALID");
-	sc_trace(f, ARREADY, "ARREADY");
-	sc_trace(f, ARID, "ARID");
-	sc_trace(f, ARADDR, "ARADDR");
-	sc_trace(f, ARLEN, "ARLEN");
-	sc_trace(f, RVALID, "RVALID");
-	sc_trace(f, RREADY, "RREADY");
-	sc_trace(f, RID, "RID");
-	sc_trace(f, RDATA, "RDATA");
-	sc_trace(f, RLAST, "RLAST");
+	sc_trace(f, bus.AWVALID, "AWVALID");
+	sc_trace(f, bus.AWREADY, "AWREADY");
+	sc_trace(f, bus.AWID, "AWID");
+	sc_trace(f, bus.AWADDR, "AWADDR");
+	sc_trace(f, bus.AWLEN, "AWLEN");
+	sc_trace(f, bus.WVALID, "WVALID");
+	sc_trace(f, bus.WREADY, "WREADY");
+	sc_trace(f, bus.WID, "WID");
+	sc_trace(f, bus.WDATA, "WDATA");
+	sc_trace(f, bus.WLAST, "WLAST");
+	sc_trace(f, bus.BVALID, "BVALID");
+	sc_trace(f, bus.BREADY, "BREADY");
+	sc_trace(f, bus.BID, "BID");
+	sc_trace(f, bus.ARVALID, "ARVALID");
+	sc_trace(f, bus.ARREADY, "ARREADY");
+	sc_trace(f, bus.ARID, "ARID");
+	sc_trace(f, bus.ARADDR, "ARADDR");
+	sc_trace(f, bus.ARLEN, "ARLEN");
+	sc_trace(f, bus.RVALID, "RVALID");
+	sc_trace(f, bus.RREADY, "RREADY");
+	sc_trace(f, bus.RID, "RID");
+	sc_trace(f, bus.RDATA, "RDATA");
+	sc_trace(f, bus.RLAST, "RLAST");
 
 	m.read_access_csv();
 	s.read_memory_csv();
