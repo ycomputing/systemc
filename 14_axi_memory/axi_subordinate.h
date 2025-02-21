@@ -8,6 +8,9 @@
 #include "axi_param.h"
 #include "axi_bus.h"
 
+// latency in clock period.
+#define AXI_SUBORDINATE_LATENCY  10
+
 SC_MODULE(AXI_SUBORDINATE)
 {
 	sc_in<bool>	ACLK;
@@ -26,7 +29,7 @@ SC_MODULE(AXI_SUBORDINATE)
 
 	SC_CTOR(AXI_SUBORDINATE)
 	{
-		SC_CTHREAD(thread, ACLK);
+		SC_CTHREAD(thread, ACLK.neg());
 		async_reset_signal_is(ARESETn, false);
 	}
 

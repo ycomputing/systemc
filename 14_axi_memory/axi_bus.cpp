@@ -12,7 +12,12 @@ using namespace sc_dt;
 
 #include "axi_bus.h"
 
-//#define DEBUG_AXI_BUS 1
+// When you (don't) want to see channel signal activity
+// (comment out or) uncomment the following line.
+//#define DEBUG_AXI_BUS_CHANNEL
+
+// When you want to see progress dump
+//#define DEBUG_AXI_BUS_PROGRESS
 
 void AXI_BUS::thread()
 {
@@ -26,6 +31,7 @@ void AXI_BUS::thread()
 	}
 }
 
+
 void AXI_BUS::on_clock()
 {
 	transaction_request_M();
@@ -33,6 +39,14 @@ void AXI_BUS::on_clock()
 
 	channel_transaction();
 
+	transaction_response_M();
+	transaction_request_S();
+}
+
+void AXI_BUS::fifo_transaction ()
+{
+	transaction_request_M();
+	transaction_response_S();
 	transaction_response_M();
 	transaction_request_S();
 }
@@ -254,9 +268,7 @@ void AXI_BUS::channel_sender(int channel, std::queue<axi_bus_info_t>& q)
 
 			send_info(channel, info);
 			set_valid(channel, true);
-			log_detail = "oldQ=" + std::to_string(q.size());
 			q.pop();
-			log_detail += ", newQ=" + std::to_string(q.size());
 
 			log_action = CHANNEL_SEND;
 			log_detail += ", " + bus_info_to_string(info);
@@ -302,18 +314,18 @@ void AXI_BUS::channel_sender(int channel, std::queue<axi_bus_info_t>& q)
 
 void AXI_BUS::log(int channel, std::string action, std::string detail)
 {
+#ifdef DEBUG_AXI_BUS_CHANNEL
 	log(get_channel_name(channel), action, detail);
+#endif
+	return;
 }
 
 void AXI_BUS::log(std::string source, std::string action, std::string detail)
 {
-
-#ifndef DEBUG_AXI_BUS
 	std::string out;
 	out = sc_time_stamp().to_string() + ":" + source
 		+ ":" + action + ":" + detail;
 	std::cout << out << std::endl;
-#endif
 
 	return;
 }
@@ -710,7 +722,7 @@ std::string AXI_BUS::progress_to_string(const tuple_progress_t& progress)
 void AXI_BUS::progress_dump()
 {
 
-#ifndef DEBUG_AXI_BUS
+#ifdef DEBUG_AXI_BUS_PROGRESS
 	//typedef std::tuple<axi_trans_t, int8_t>
 	tuple_progress_t progress;
 	uint32_t id;

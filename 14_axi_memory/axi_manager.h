@@ -26,7 +26,7 @@ SC_MODULE(AXI_MANAGER)
 
 	SC_CTOR(AXI_MANAGER)
 	{
-		SC_CTHREAD(thread, ACLK);
+		SC_CTHREAD(thread,  ACLK.neg());
 		async_reset_signal_is(ARESETn, false);
 	}
 
